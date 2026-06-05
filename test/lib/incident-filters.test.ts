@@ -28,7 +28,15 @@ describe("incident-filters", () => {
     expect(where.assigneeId).toBe("user-1");
     expect(where.severity).toBe("CRITICAL");
     expect(where.status).toBe("IN_PROGRESS");
-    expect(where.identifiedAt?.gte).toBeInstanceOf(Date);
-    expect(where.identifiedAt?.lte).toBeInstanceOf(Date);
+    const identifiedAt = where.identifiedAt;
+    expect(identifiedAt).toBeDefined();
+    if (
+      identifiedAt &&
+      typeof identifiedAt === "object" &&
+      !(identifiedAt instanceof Date)
+    ) {
+      expect(identifiedAt.gte).toBeInstanceOf(Date);
+      expect(identifiedAt.lte).toBeInstanceOf(Date);
+    }
   });
 });

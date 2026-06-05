@@ -285,6 +285,7 @@ export function StockManagementContent() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadStock();
   }, []);
 
@@ -293,6 +294,7 @@ export function StockManagementContent() {
       return;
     }
     void loadInventorySessions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab]);
 
   async function loadInventorySessions() {
@@ -309,6 +311,7 @@ export function StockManagementContent() {
           id: string;
           sku: string;
           asset: string;
+          imageUrl: string | null;
           status: string;
           expectedLocation: string;
           notes: string | null;

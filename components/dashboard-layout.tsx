@@ -17,13 +17,6 @@ import { ReactNode, useEffect, useState } from "react";
 
 import { DashboardUserMenu } from "@/components/dashboard-user-menu";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
 
 const navItems = [
   { label: "Tableau de bord", icon: LayoutDashboard, href: "/" },

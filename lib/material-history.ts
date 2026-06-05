@@ -1,5 +1,4 @@
 import { isAssignmentStockMovementReason } from "@/lib/assignment-management";
-import { resolveHistoryPeriod } from "@/lib/period-range";
 import { prisma } from "@/lib/prisma";
 
 export { resolveHistoryPeriod } from "@/lib/period-range";

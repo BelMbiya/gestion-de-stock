@@ -68,7 +68,6 @@ const getDashboardData = unstable_cache(
     assetCount,
     maintenanceCount,
     openIncidentCount,
-    checkedCount,
     allAssetsForAlerts,
     assets,
     incidents,
@@ -82,7 +81,6 @@ const getDashboardData = unstable_cache(
           },
         },
       }),
-      prisma.inventoryCheck.count(),
       prisma.asset.findMany({
         select: {
           quantityOnHand: true,

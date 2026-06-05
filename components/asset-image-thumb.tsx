@@ -43,6 +43,8 @@ export function AssetImageThumb({
   }
 
   return (
+    // URL dynamique (upload local ou blob) — next/image non adapte
+    // eslint-disable-next-line @next/next/no-img-element
     <img
       alt={alt}
       className={cn(

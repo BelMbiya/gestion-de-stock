@@ -217,7 +217,7 @@ async function main() {
     },
   });
 
-  const session = await prisma.inventorySession.create({
+  await prisma.inventorySession.create({
     data: {
       name: "Inventaire trimestriel Q2",
       description: "Controle terrain du parc IT",

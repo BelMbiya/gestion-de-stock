@@ -248,6 +248,7 @@ export function IncidentsContent() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadIncidents();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [incidentsQuery]);
 
   const selectedAsset = assets.find((asset) => asset.id === selectedAssetId);

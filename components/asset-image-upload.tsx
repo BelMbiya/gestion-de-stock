@@ -31,17 +31,11 @@ export function AssetImageUpload({
 }: AssetImageUploadProps) {
   const inputId = useId();
   const inputRef = useRef<HTMLInputElement>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(imageUrl);
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [localBlobUrl, setLocalBlobUrl] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!localBlobUrl) {
-      setPreviewUrl(imageUrl);
-    }
-  }, [imageUrl, localBlobUrl]);
+  const displayUrl = localBlobUrl ?? imageUrl;
 
   useEffect(() => {
     return () => {
@@ -66,7 +60,6 @@ export function AssetImageUpload({
       URL.revokeObjectURL(localBlobUrl);
     }
     setLocalBlobUrl(blobUrl);
-    setPreviewUrl(blobUrl);
 
     try {
       const body = new FormData();
@@ -84,7 +77,6 @@ export function AssetImageUpload({
       }
 
       onImageUrlChange(payload.url);
-      setPreviewUrl(payload.url);
       URL.revokeObjectURL(blobUrl);
       setLocalBlobUrl(null);
     } catch (uploadError) {
@@ -93,7 +85,6 @@ export function AssetImageUpload({
           ? uploadError.message
           : "Impossible d'envoyer l'image",
       );
-      setPreviewUrl(imageUrl);
       URL.revokeObjectURL(blobUrl);
       setLocalBlobUrl(null);
     } finally {
@@ -138,7 +129,6 @@ export function AssetImageUpload({
       URL.revokeObjectURL(localBlobUrl);
       setLocalBlobUrl(null);
     }
-    setPreviewUrl(null);
     setError(null);
     onImageUrlChange(null);
     if (inputRef.current) {
@@ -146,7 +136,7 @@ export function AssetImageUpload({
     }
   }
 
-  const hasImage = Boolean(previewUrl);
+  const hasImage = Boolean(displayUrl);
 
   return (
     <div className={cn("space-y-2", className)}>
@@ -162,7 +152,7 @@ export function AssetImageUpload({
         onDragOver={handleDragOver}
         onDrop={handleDrop}
       >
-        <AssetImageThumb alt={alt} imageUrl={previewUrl} size="md" />
+        <AssetImageThumb alt={alt} imageUrl={displayUrl} size="md" />
 
         <div className="min-w-0 flex-1 space-y-3">
           <div>

@@ -45,4 +45,14 @@ jobs:
         run: npm test
 
       - name: Build Next.js application
+        env:
+          # URL factice : le client Prisma n'est cree qu'a l'execution des routes API
+          DATABASE_URL: mysql://ci:ci@127.0.0.1:3306/ci
+          # Cle factice pour la CI ; la vraie cle va dans les secrets du hebergeur (Vercel, etc.)
+          NEXT_PUBLIC_FIREBASE_API_KEY: ci-build-placeholder
+          NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: stock-it-c0557.firebaseapp.com
+          NEXT_PUBLIC_FIREBASE_PROJECT_ID: stock-it-c0557
+          NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: stock-it-c0557.firebasestorage.app
+          NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: "392508090440"
+          NEXT_PUBLIC_FIREBASE_APP_ID: "1:392508090440:web:6f143a406362344108907d"
         run: npm run build

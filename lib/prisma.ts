@@ -10,15 +10,8 @@ const globalForPrisma = globalThis as unknown as {
   prismaSchemaRevision?: number;
 };
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl) {
-  throw new Error("DATABASE_URL is required to connect to the database.");
-}
-
-const adapter = new PrismaMariaDb(databaseUrl);
-
-function createPrismaClient() {
+function createPrismaClient(databaseUrl: string) {
+  const adapter = new PrismaMariaDb(databaseUrl);
   return new PrismaClient({ adapter });
 }
 
@@ -52,22 +45,24 @@ function isPrismaClientStale(client: PrismaClient) {
   }
 
   if (process.env.NODE_ENV !== "production") {
-    if (hasExpectedReturn === false) {
-      return true;
-    }
     return globalForPrisma.prismaSchemaRevision !== PRISMA_SCHEMA_REVISION;
   }
 
-  return hasExpectedReturn === false;
+  return false;
 }
 
 function getPrismaClient() {
+  const databaseUrl = process.env.DATABASE_URL;
+  if (!databaseUrl) {
+    throw new Error("DATABASE_URL is required to connect to the database.");
+  }
+
   const cached = globalForPrisma.prisma;
   if (cached && !isPrismaClientStale(cached)) {
     return cached;
   }
 
-  const client = createPrismaClient();
+  const client = createPrismaClient(databaseUrl);
   if (process.env.NODE_ENV !== "production") {
     globalForPrisma.prisma = client;
     globalForPrisma.prismaSchemaRevision = PRISMA_SCHEMA_REVISION;
@@ -75,4 +70,15 @@ function getPrismaClient() {
   return client;
 }
 
-export const prisma = getPrismaClient();
+export const prisma = new Proxy({} as PrismaClient, {
+  get(_target, property, receiver) {
+    const client = getPrismaClient();
+    const value = Reflect.get(client, property, receiver);
+
+    if (typeof value === "function") {
+      return value.bind(client);
+    }
+
+    return value;
+  },
+});

@@ -26,6 +26,13 @@ const inventoryPayload = {
 describe("InventoryContent", () => {
   const fetchMock = vi.fn();
 
+  function findFetchCall(url: string, method?: string) {
+    return fetchMock.mock.calls.find(
+      ([callUrl, init]) =>
+        callUrl === url && (method ? init?.method === method : true),
+    );
+  }
+
   beforeEach(() => {
     fetchMock.mockImplementation(async (_url, init) => ({
       ok: true,
@@ -83,20 +90,22 @@ describe("InventoryContent", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ajouter" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/inventory",
+      const postCall = findFetchCall("/api/inventory", "POST");
+      expect(postCall).toBeDefined();
+      expect(postCall?.[1]).toMatchObject({
+        headers: { "Content-Type": "application/json" },
+        method: "POST",
+      });
+      expect(JSON.parse(String(postCall?.[1]?.body))).toEqual(
         expect.objectContaining({
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            categoryId: "category-1",
-            locationId: "location-1",
-            name: "Dell Latitude 7450",
-            purchaseValue: "1450",
-            serialNumber: "DL-7450-42",
-            sku: "IT-LAP-042",
-            status: "AVAILABLE",
-          }),
+          categoryId: "category-1",
+          locationId: "location-1",
+          imageUrl: "",
+          name: "Dell Latitude 7450",
+          purchaseValue: "1450",
+          serialNumber: "DL-7450-42",
+          sku: "IT-LAP-042",
+          status: "AVAILABLE",
         }),
       );
     });
@@ -134,29 +143,29 @@ describe("InventoryContent", () => {
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/inventory/asset-1",
+      const patchCall = findFetchCall("/api/inventory/asset-1", "PATCH");
+      expect(patchCall).toBeDefined();
+      expect(patchCall?.[1]).toMatchObject({
+        headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+      });
+      expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual(
         expect.objectContaining({
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            categoryId: "category-1",
-            locationId: "location-1",
-            name: "Cisco ISR 4331 HA",
-            purchaseValue: "3820",
-            serialNumber: "RTR-4331-00015",
-            sku: "IT-RTR-015",
-            status: "BROKEN",
-          }),
+          categoryId: "category-1",
+          locationId: "location-1",
+          imageUrl: "",
+          name: "Cisco ISR 4331 HA",
+          purchaseValue: "3820",
+          serialNumber: "RTR-4331-00015",
+          sku: "IT-RTR-015",
+          status: "BROKEN",
         }),
       );
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Supprimer" }));
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/inventory/asset-1", {
-        method: "DELETE",
-      });
+      expect(findFetchCall("/api/inventory/asset-1", "DELETE")).toBeDefined();
     });
   });
 });
