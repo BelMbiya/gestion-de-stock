@@ -42,6 +42,9 @@ next-env.d.ts
 
 /lib/generated/prisma
 
+# donnees reelles d'inventaire (series, responsables) : jamais dans le depot public
+/KYC  CALL IT Inventory.xlsx
+
 # uploads utilisateur (fichiers generes en local)
 /public/uploads/assets/*
 !/public/uploads/assets/.gitkeep

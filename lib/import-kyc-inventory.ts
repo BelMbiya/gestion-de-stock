@@ -1,10 +1,11 @@
+import { existsSync } from "node:fs";
 import path from "node:path";
 
 import * as XLSX from "xlsx";
 
 import type { PrismaClient } from "./generated/prisma/client";
 
-import { KYC_EXCEL_SHEET_NAMES } from "./kyc-excel/sheet-names";
+import { KYC_EXCEL_FILE, KYC_EXCEL_SHEET_NAMES } from "./kyc-excel/sheet-names";
 import {
   inferCategory,
   parseAllKycSheets,
@@ -23,8 +24,29 @@ export {
 export { KYC_EXCEL_FILE, KYC_EXCEL_SHEET_NAMES } from "./kyc-excel/sheet-names";
 export { KYC_UI, KYC_PROCO_COLUMNS, KYC_IN_STORE_COLUMNS, KYC_WORKSTATION_COLUMNS, KYC_SHEET_LABELS } from "./kyc-excel/terminology";
 
+export class KycWorkbookMissingError extends Error {
+  constructor(filePath: string) {
+    super(
+      `Classeur KYC introuvable : ${filePath}. ` +
+        `Placez "${KYC_EXCEL_FILE}" a la racine du projet (fichier non versionne : donnees reelles).`,
+    );
+    this.name = "KycWorkbookMissingError";
+  }
+}
+
+function kycWorkbookPath(baseDir: string) {
+  return path.join(baseDir, KYC_EXCEL_FILE);
+}
+
+export function hasKycWorkbook(baseDir = process.cwd()) {
+  return existsSync(kycWorkbookPath(baseDir));
+}
+
 export function loadKycWorkbookRows(baseDir = process.cwd()) {
-  const filePath = path.join(baseDir, "KYC  CALL IT Inventory.xlsx");
+  const filePath = kycWorkbookPath(baseDir);
+  if (!existsSync(filePath)) {
+    throw new KycWorkbookMissingError(filePath);
+  }
   const workbook = XLSX.readFile(filePath);
   const sheets = {} as Record<KycExcelSheetName, unknown[][]>;
 

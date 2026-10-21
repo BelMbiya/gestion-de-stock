@@ -1,7 +1,13 @@
+import { mkdtempSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+
 import { describe, expect, it } from "vitest";
 
 import {
   KYC_EXCEL_SHEET_NAMES,
+  KycWorkbookMissingError,
+  hasKycWorkbook,
   kycSheetParsers,
   loadKycInventoryFromExcel,
   parseAllKycSheets,
@@ -15,6 +21,18 @@ describe("import-kyc-inventory", () => {
     }
   });
 
+  it("signale clairement un classeur KYC absent", () => {
+    const emptyDir = mkdtempSync(path.join(tmpdir(), "kyc-missing-"));
+
+    expect(hasKycWorkbook(emptyDir)).toBe(false);
+    expect(() => loadKycWorkbookRows(emptyDir)).toThrow(KycWorkbookMissingError);
+    expect(() => loadKycWorkbookRows(emptyDir)).toThrow(/non versionne/);
+  });
+});
+
+// Le classeur contient des donnees reelles (series, responsables) : il n'est pas
+// versionne. Ces tests tournent en local quand il est present, sont ignores en CI.
+describe.skipIf(!hasKycWorkbook())("import-kyc-inventory — classeur reel", () => {
   it("parse toutes les feuilles du classeur KYC", () => {
     const parsed = parseAllKycSheets(loadKycWorkbookRows());
     expect(parsed["PROCO KYC & CALL IT EQUIPEMENT"].length).toBeGreaterThan(300);

@@ -3,7 +3,11 @@ import "dotenv/config";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient, UserRole } from "../lib/generated/prisma/client";
 
-import { SeedRefusedError, seedKycInventory } from "../lib/import-kyc-inventory";
+import {
+  KycWorkbookMissingError,
+  SeedRefusedError,
+  seedKycInventory,
+} from "../lib/import-kyc-inventory";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -60,7 +64,9 @@ main()
     await prisma.$disconnect();
   })
   .catch(async (error) => {
-    console.error(error instanceof SeedRefusedError ? error.message : error);
+    const isExpected =
+      error instanceof SeedRefusedError || error instanceof KycWorkbookMissingError;
+    console.error(isExpected ? error.message : error);
     await prisma.$disconnect();
     process.exit(1);
   });
