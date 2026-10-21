@@ -123,12 +123,11 @@ export const KYC_NAV = {
   HISTORY: "Historique",
   REPORTS: "Rapports",
   SETTINGS: "Parametres",
-  MOVEMENTS: "Mouvements",
-  TRANSFERS: "Transferts",
 } as const;
 
 /** Libelles communs des vues (colonnes Excel + champs operationnels) */
 export const KYC_VIEW = {
+  MOVEMENTS: "Mouvements",
   PHOTO: "Photo",
   CATEGORY: "Categorie",
   DEPARTMENT: "Departement",

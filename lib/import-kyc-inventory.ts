@@ -4,13 +4,11 @@ import * as XLSX from "xlsx";
 
 import type { PrismaClient } from "./generated/prisma/client";
 
-import { persistKycSheetsToDatabase } from "./kyc-excel/persist-sheets";
 import { KYC_EXCEL_SHEET_NAMES } from "./kyc-excel/sheet-names";
 import {
   inferCategory,
   parseAllKycSheets,
   projectSheetsToAssets,
-  type KycImportRow,
 } from "./kyc-excel/sheet-parsers";
 import { locationCode } from "./kyc-excel/shared";
 import type { KycExcelSheetName } from "./kyc-excel/sheet-names";
@@ -23,7 +21,6 @@ export {
   projectSheetsToAssets,
 } from "./kyc-excel/sheet-parsers";
 export { KYC_EXCEL_FILE, KYC_EXCEL_SHEET_NAMES } from "./kyc-excel/sheet-names";
-export { persistKycSheetsToDatabase } from "./kyc-excel/persist-sheets";
 export { KYC_UI, KYC_PROCO_COLUMNS, KYC_IN_STORE_COLUMNS, KYC_WORKSTATION_COLUMNS, KYC_SHEET_LABELS } from "./kyc-excel/terminology";
 
 export function loadKycWorkbookRows(baseDir = process.cwd()) {
@@ -80,7 +77,6 @@ export async function seedKycInventory(
   await assertSeedAllowed(prisma, options);
 
   const parsed = parseAllKycSheets(loadKycWorkbookRows());
-  const sheetCounts = await persistKycSheetsToDatabase(prisma, parsed);
   const items = projectSheetsToAssets(parsed);
 
   await prisma.auditLog.deleteMany();
@@ -195,6 +191,5 @@ export async function seedKycInventory(
     items: items.length,
     locations: locations.size,
     categories: categories.size,
-    sheets: sheetCounts,
   };
 }

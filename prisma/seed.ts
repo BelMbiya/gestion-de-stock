@@ -53,7 +53,6 @@ async function main() {
   console.log(
     `Seed KYC termine: ${result.created} actifs, ${result.locations} sites, ${result.categories} categories.`,
   );
-  console.log("Feuilles Excel persistees:", result.sheets);
 }
 
 main()

@@ -2,91 +2,29 @@ import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 
 import { PrismaClient } from "@/lib/generated/prisma/client";
 
-/** Increment after schema changes so dev HMR drops a cached PrismaClient. */
-const PRISMA_SCHEMA_REVISION = 5;
-
-const globalForPrisma = globalThis as unknown as {
-  prisma?: PrismaClient;
-  prismaSchemaRevision?: number;
-};
-
-function createPrismaClient(databaseUrl: string) {
-  const adapter = new PrismaMariaDb(databaseUrl);
-  return new PrismaClient({ adapter });
-}
-
-function assetAssignmentHasExpectedReturn(
-  client: PrismaClient,
-): boolean | null {
-  const fields = (
-    client as {
-      _runtimeDataModel?: {
-        models?: { AssetAssignment?: { fields?: { name: string }[] } };
-      };
-    }
-  )._runtimeDataModel?.models?.AssetAssignment?.fields;
-
-  if (!fields) {
-    return null;
-  }
-
-  return fields.some((field) => field.name === "expectedReturnAt");
-}
-
-/** Dev HMR can keep an outdated client after `prisma generate` — recreate if delegates/fields are missing. */
-function isPrismaClientStale(client: PrismaClient) {
-  if (!("supplier" in client)) {
-    return true;
-  }
-
-  if (!("supportTicket" in client)) {
-    return true;
-  }
-
-  if (!("sheetProcoKycCallItEquipement" in client)) {
-    return true;
-  }
-
-  const hasExpectedReturn = assetAssignmentHasExpectedReturn(client);
-  if (hasExpectedReturn === false) {
-    return true;
-  }
-
-  if (process.env.NODE_ENV !== "production") {
-    return globalForPrisma.prismaSchemaRevision !== PRISMA_SCHEMA_REVISION;
-  }
-
-  return false;
-}
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 function getPrismaClient() {
+  if (globalForPrisma.prisma) {
+    return globalForPrisma.prisma;
+  }
+
   const databaseUrl = process.env.DATABASE_URL;
   if (!databaseUrl) {
     throw new Error("DATABASE_URL is required to connect to the database.");
   }
 
-  const cached = globalForPrisma.prisma;
-  if (cached && !isPrismaClientStale(cached)) {
-    return cached;
-  }
-
-  const client = createPrismaClient(databaseUrl);
-  if (process.env.NODE_ENV !== "production") {
-    globalForPrisma.prisma = client;
-    globalForPrisma.prismaSchemaRevision = PRISMA_SCHEMA_REVISION;
-  }
+  const client = new PrismaClient({ adapter: new PrismaMariaDb(databaseUrl) });
+  // Un seul client par process (évite d'ouvrir un pool à chaque rechargement HMR en dev).
+  globalForPrisma.prisma = client;
   return client;
 }
 
+/** Créé au premier accès : importer ce module ne requiert pas DATABASE_URL. */
 export const prisma = new Proxy({} as PrismaClient, {
-  get(_target, property, receiver) {
+  get(_target, property) {
     const client = getPrismaClient();
-    const value = Reflect.get(client, property, receiver);
-
-    if (typeof value === "function") {
-      return value.bind(client);
-    }
-
-    return value;
+    const value = Reflect.get(client, property, client);
+    return typeof value === "function" ? value.bind(client) : value;
   },
 });
