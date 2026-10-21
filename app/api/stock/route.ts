@@ -8,6 +8,7 @@ import {
 } from "@/lib/stock-management";
 import { normalizeImageUrl } from "@/lib/asset-image";
 import { serializeAsset } from "@/lib/stock-serializer";
+import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,7 @@ const assetInclude = {
   },
 };
 
-export async function GET() {
+export const GET = withAuth(async () => {
   try {
   const [assets, categories, locations, suppliers, movements, sessions] =
     await Promise.all([
@@ -142,9 +143,9 @@ export async function GET() {
       error instanceof Error ? error.message : "Erreur chargement du stock";
     return NextResponse.json({ error: message }, { status: 500 });
   }
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request: Request) => {
   const body = await request.json();
   const quantityOnHand = Math.max(0, Number(body.quantityOnHand ?? 1));
 
@@ -188,4 +189,4 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ asset: serializeAsset(asset) }, { status: 201 });
-}
+});

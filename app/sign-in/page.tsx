@@ -2,15 +2,14 @@
 
 import { FirebaseError } from "firebase/app";
 import {
-  createUserWithEmailAndPassword,
   onAuthStateChanged,
   signInWithEmailAndPassword,
   signInWithPopup,
 } from "firebase/auth";
-import { ArrowRight, LockKeyhole, Mail, ShieldCheck } from "lucide-react";
+import { ArrowRight, LockKeyhole, Mail, ShieldAlert, ShieldCheck } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { FormEvent, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { FormEvent, Suspense, useEffect, useState } from "react";
 
 import { auth, googleProvider } from "@/firebase";
 import { Badge } from "@/components/ui/badge";
@@ -29,14 +28,6 @@ function getAuthErrorMessage(error: unknown) {
   if (error instanceof FirebaseError) {
     if (error.code === "auth/invalid-credential") {
       return "Identifiants incorrects. Verifiez votre email et mot de passe.";
-    }
-
-    if (error.code === "auth/email-already-in-use") {
-      return "Cet email est deja utilise. Connectez-vous avec ce compte.";
-    }
-
-    if (error.code === "auth/weak-password") {
-      return "Le mot de passe doit contenir au moins 6 caracteres.";
     }
   }
 
@@ -66,11 +57,21 @@ function GoogleIcon() {
   );
 }
 
+// useSearchParams impose une frontiere Suspense pour le prerendu de la page.
 export default function SignInPage() {
+  return (
+    <Suspense fallback={null}>
+      <SignInForm />
+    </Suspense>
+  );
+}
+
+function SignInForm() {
   const router = useRouter();
+  // Pose par apiFetch quand une API repond 403 (compte absent de la table User).
+  const isForbidden = useSearchParams().get("reason") === "forbidden";
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [isCheckingSession, setIsCheckingSession] = useState(true);
   const [isLoading, setIsLoading] = useState(false);
   const [message, setMessage] = useState("");
@@ -94,11 +95,7 @@ export default function SignInPage() {
     setIsLoading(true);
 
     try {
-      if (isCreatingAccount) {
-        await createUserWithEmailAndPassword(auth, email, password);
-      } else {
-        await signInWithEmailAndPassword(auth, email, password);
-      }
+      await signInWithEmailAndPassword(auth, email, password);
       setMessage("Connexion reussie. Redirection vers le dashboard...");
       router.replace("/");
     } catch (authError) {
@@ -158,13 +155,28 @@ export default function SignInPage() {
         <Card className="w-full max-w-lg border-white/10 bg-[#11183b]/95 text-white shadow-2xl shadow-black/40 ring-0">
           <CardHeader>
             <CardTitle className="text-3xl font-black">
-              {isCreatingAccount ? "Creer un compte" : "Connexion"}
+              Connexion
             </CardTitle>
             <CardDescription className="text-slate-400">
               Utilisez votre email PROCO & Cie ou votre compte Google.
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {isForbidden ? (
+              <div
+                className="mb-5 flex gap-3 rounded-2xl border border-[#ff2f45]/30 bg-[#ff2f45]/10 p-4 text-sm"
+                role="alert"
+              >
+                <ShieldAlert className="mt-0.5 size-5 shrink-0 text-[#ff91a0]" />
+                <div className="space-y-1">
+                  <p className="font-bold text-white">Compte non autorise</p>
+                  <p className="text-slate-300">
+                    Ce compte n&apos;est pas enregistre dans Stock IT. Contactez
+                    l&apos;administrateur IT pour obtenir un acces.
+                  </p>
+                </div>
+              </div>
+            ) : null}
             {isCheckingSession ? (
               <div className="rounded-2xl border border-white/10 bg-white/6 p-4 text-sm text-slate-300">
                 Verification de la session...
@@ -195,9 +207,7 @@ export default function SignInPage() {
                 <div className="relative">
                   <LockKeyhole className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
                   <Input
-                    autoComplete={
-                      isCreatingAccount ? "new-password" : "current-password"
-                    }
+                    autoComplete="current-password"
                     className="h-11 border-white/10 bg-white/6 pl-10 text-white"
                     minLength={6}
                     onChange={(event) => setPassword(event.target.value)}
@@ -225,11 +235,7 @@ export default function SignInPage() {
                 disabled={isLoading}
                 type="submit"
               >
-                {isLoading
-                  ? "Traitement..."
-                  : isCreatingAccount
-                    ? "Creer le compte"
-                    : "Se connecter"}
+                {isLoading ? "Traitement..." : "Se connecter"}
                 <ArrowRight className="size-4" />
               </Button>
             </form>
@@ -252,16 +258,10 @@ export default function SignInPage() {
               Continuer avec Google
             </Button>
 
-            <div className="mt-6 flex items-center justify-between text-sm">
-              <button
-                className="font-semibold text-[#9fd0ff]"
-                onClick={() => setIsCreatingAccount((value) => !value)}
-                type="button"
-              >
-                {isCreatingAccount
-                  ? "J'ai deja un compte"
-                  : "Creer un nouveau compte"}
-              </button>
+            <div className="mt-6 flex items-center justify-between gap-4 text-sm">
+              <p className="text-slate-400">
+                Acces reserve aux comptes enregistres par l&apos;IT.
+              </p>
               <Link className="text-slate-400 hover:text-white" href="/sign-out">
                 Deconnexion
               </Link>

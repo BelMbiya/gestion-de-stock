@@ -40,6 +40,7 @@ import {
 
 import { ui } from "@/lib/ui-styles";
 import { KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
+import { apiFetch } from "@/lib/api-client";
 
 type DashboardStat = {
   label: string;
@@ -115,7 +116,7 @@ export function DashboardContent() {
   useEffect(() => {
     async function loadDashboard() {
       try {
-        const response = await fetch("/api/dashboard", {
+        const response = await apiFetch("/api/dashboard", {
           cache: "no-store",
         });
 

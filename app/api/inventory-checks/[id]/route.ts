@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/auth/with-auth";
 
 const checkStatuses = ["FOUND", "MISSING", "DAMAGED", "MOVED"] as const;
 
@@ -8,10 +9,10 @@ function normalizeCheckStatus(status: unknown) {
   return checkStatuses.find((value) => value === status);
 }
 
-export async function PATCH(
+export const PATCH = withAuth(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
   const body = await request.json();
   const status = normalizeCheckStatus(body.status);
@@ -40,4 +41,4 @@ export async function PATCH(
   }
 
   return NextResponse.json({ check });
-}
+});

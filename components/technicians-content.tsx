@@ -32,6 +32,7 @@ import {
 
 import { ui } from "@/lib/ui-styles";
 import { KYC_IN_STORE_COLUMNS, KYC_UI } from "@/lib/kyc-excel/terminology";
+import { apiFetch } from "@/lib/api-client";
 
 type Department = {
   id: string;
@@ -100,7 +101,7 @@ export function TechniciansContent() {
   });
 
   async function loadTechnicians() {
-    const response = await fetch("/api/technicians", { cache: "no-store" });
+    const response = await apiFetch("/api/technicians", { cache: "no-store" });
     const data = await response.json();
     setDepartments(data.departments);
     setTechnicians(data.technicians);
@@ -117,7 +118,7 @@ export function TechniciansContent() {
     const url = editingId ? `/api/technicians/${editingId}` : "/api/technicians";
     const method = editingId ? "PATCH" : "POST";
 
-    await fetch(url, {
+    await apiFetch(url, {
       method,
       body: JSON.stringify(form),
     });
@@ -141,7 +142,7 @@ export function TechniciansContent() {
   }
 
   async function handleDelete(id: string) {
-    await fetch(`/api/technicians/${id}`, { method: "DELETE" });
+    await apiFetch(`/api/technicians/${id}`, { method: "DELETE" });
     await loadTechnicians();
   }
 

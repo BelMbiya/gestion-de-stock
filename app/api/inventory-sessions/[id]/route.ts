@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/auth/with-auth";
 
-export async function PATCH(
+export const PATCH = withAuth(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
   const body = await request.json();
 
@@ -20,4 +21,4 @@ export async function PATCH(
   });
 
   return NextResponse.json({ session });
-}
+});

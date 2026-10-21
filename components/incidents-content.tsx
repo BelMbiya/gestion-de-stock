@@ -40,6 +40,7 @@ import {
 } from "@/lib/incident-serializer";
 import { KYC_UI } from "@/lib/kyc-excel/terminology";
 import { ui } from "@/lib/ui-styles";
+import { apiFetch } from "@/lib/api-client";
 
 type IncidentUpdate = {
   id: string;
@@ -229,7 +230,7 @@ export function IncidentsContent() {
     setError("");
 
     try {
-      const response = await fetch(`/api/incidents${incidentsQuery}`, {
+      const response = await apiFetch(`/api/incidents${incidentsQuery}`, {
         cache: "no-store",
       });
 
@@ -304,7 +305,7 @@ export function IncidentsContent() {
       : "/api/incidents";
     const method = editingIncidentId ? "PATCH" : "POST";
 
-    await fetch(url, {
+    await apiFetch(url, {
       method,
       body: JSON.stringify({
         ...form,
@@ -356,7 +357,7 @@ export function IncidentsContent() {
   }
 
   async function handleDelete(id: string) {
-    await fetch(`/api/incidents/${id}`, {
+    await apiFetch(`/api/incidents/${id}`, {
       method: "DELETE",
     });
     await loadIncidents();

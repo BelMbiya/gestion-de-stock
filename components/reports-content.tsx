@@ -31,6 +31,7 @@ import {
 
 import { ui } from "@/lib/ui-styles";
 import { KYC_IN_STORE_COLUMNS, KYC_PROCO_COLUMNS, KYC_UI, KYC_WORKSTATION_COLUMNS } from "@/lib/kyc-excel/terminology";
+import { apiFetch } from "@/lib/api-client";
 
 type SummaryItem = {
   hint: string;
@@ -222,7 +223,7 @@ export function ReportsContent() {
   useEffect(() => {
     async function loadReports() {
       try {
-        const response = await fetch("/api/reports", { cache: "no-store" });
+        const response = await apiFetch("/api/reports", { cache: "no-store" });
 
         if (!response.ok) {
           throw new Error("Reports API failed");

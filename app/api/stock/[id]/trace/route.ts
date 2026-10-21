@@ -4,6 +4,7 @@ import type { IncidentStatus } from "@/lib/generated/prisma/client";
 import { prisma } from "@/lib/prisma";
 import { movementTypeLabels } from "@/lib/stock-management";
 import { serializeAsset } from "@/lib/stock-serializer";
+import { withAuth } from "@/lib/auth/with-auth";
 
 const assetInclude = {
   category: true,
@@ -23,10 +24,10 @@ const assetInclude = {
   },
 };
 
-export async function GET(
+export const GET = withAuth(async (
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
 
   const asset = await prisma.asset.findUnique({
@@ -81,4 +82,4 @@ export async function GET(
       }),
     })),
   });
-}
+});

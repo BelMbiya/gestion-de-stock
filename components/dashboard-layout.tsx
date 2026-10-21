@@ -19,6 +19,7 @@ import { ReactNode, useEffect, useState } from "react";
 import { DashboardUserMenu } from "@/components/dashboard-user-menu";
 import { Badge } from "@/components/ui/badge";
 import { KYC_NAV } from "@/lib/kyc-excel/terminology";
+import { apiFetch } from "@/lib/api-client";
 
 const navItems = [
   { label: KYC_NAV.DASHBOARD, icon: LayoutDashboard, href: "/", badge: null as string | null },
@@ -41,7 +42,7 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     async function loadNotifications() {
-      const response = await fetch("/api/notifications", { cache: "no-store" });
+      const response = await apiFetch("/api/notifications", { cache: "no-store" });
       if (response.ok) {
         const data = await response.json();
         setOpenIncidents(data.openIncidents ?? 0);

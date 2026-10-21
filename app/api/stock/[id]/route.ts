@@ -8,6 +8,7 @@ import {
 } from "@/lib/stock-management";
 import { normalizeImageUrl } from "@/lib/asset-image";
 import { serializeAsset } from "@/lib/stock-serializer";
+import { withAuth } from "@/lib/auth/with-auth";
 
 const assetInclude = {
   category: true,
@@ -27,10 +28,10 @@ const assetInclude = {
   },
 };
 
-export async function PATCH(
+export const PATCH = withAuth(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
   const body = await request.json();
   const status = body.status ? normalizeAssetStatus(body.status) : undefined;
@@ -135,15 +136,15 @@ export async function PATCH(
   });
 
   return NextResponse.json({ asset: serializeAsset(asset) });
-}
+});
 
-export async function DELETE(
+export const DELETE = withAuth(async (
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
 
   await prisma.asset.delete({ where: { id } });
 
   return NextResponse.json({ ok: true });
-}
+});

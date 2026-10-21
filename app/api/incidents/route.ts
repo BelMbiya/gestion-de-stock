@@ -8,6 +8,7 @@ import {
 import { serializeIncident } from "@/lib/incident-serializer";
 import { kycAssetListSelect } from "@/lib/kyc-excel/asset-select";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -85,7 +86,7 @@ async function fetchIncidentsPayload(where?: ReturnType<typeof buildIncidentWher
 const getIncidentsData = (
   async () => fetchIncidentsPayload());
 
-export async function GET(request: Request) {
+export const GET = withAuth(async (request: Request) => {
   const filters = parseIncidentSearchParams(new URL(request.url).searchParams);
 
   if (!hasIncidentListFilters(filters)) {
@@ -95,9 +96,9 @@ export async function GET(request: Request) {
   return NextResponse.json(
     await fetchIncidentsPayload(buildIncidentWhere(filters)),
   );
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request: Request) => {
   const body = await request.json();
   const status = normalizeStatus(body.status);
   const history = body.history ?? body.comment;
@@ -125,4 +126,4 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({ incident }, { status: 201 });
-}
+});

@@ -9,12 +9,13 @@ import {
   isAllowedAssetImageMime,
   validateAssetImageFile,
 } from "@/lib/asset-image-upload";
+import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
 const uploadDir = path.join(process.cwd(), "public", "uploads", "assets");
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request: Request) => {
   try {
     const formData = await request.formData();
     const file = formData.get("file");
@@ -50,4 +51,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+});

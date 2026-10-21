@@ -4,6 +4,7 @@ import { sortIncidentsByResolutionPriority } from "@/lib/incident-resolution";
 import { KYC_UI } from "@/lib/kyc-excel/terminology";
 import { prisma } from "@/lib/prisma";
 import { getStockLevelStatus } from "@/lib/stock-management";
+import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -180,6 +181,6 @@ const getDashboardData = (
   };
   });
 
-export async function GET() {
+export const GET = withAuth(async () => {
   return NextResponse.json(await getDashboardData());
-}
+});

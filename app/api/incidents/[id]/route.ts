@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/auth/with-auth";
 
 const severityValues = ["LOW", "MEDIUM", "HIGH", "CRITICAL"] as const;
 const statusValues = [
@@ -20,10 +21,10 @@ function normalizeStatus(status: unknown) {
   return statusValues.find((value) => value === status);
 }
 
-export async function PATCH(
+export const PATCH = withAuth(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
   const body = await request.json();
   const status = normalizeStatus(body.status);
@@ -58,12 +59,12 @@ export async function PATCH(
   });
 
   return NextResponse.json({ incident });
-}
+});
 
-export async function DELETE(
+export const DELETE = withAuth(async (
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
 
   await prisma.incident.delete({
@@ -71,4 +72,4 @@ export async function DELETE(
   });
 
   return NextResponse.json({ ok: true });
-}
+});

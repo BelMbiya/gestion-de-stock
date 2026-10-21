@@ -4,13 +4,14 @@ import {
   buildMaterialHistory,
   resolveHistoryPeriod,
 } from "@/lib/material-history";
+import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
 const getCachedHistory = (
   async () => buildMaterialHistory());
 
-export async function GET(request: Request) {
+export const GET = withAuth(async (request: Request) => {
   const { searchParams } = new URL(request.url);
   const assetId = searchParams.get("assetId") ?? undefined;
   const technicianId = searchParams.get("technicianId") ?? undefined;
@@ -40,4 +41,4 @@ export async function GET(request: Request) {
   });
 
   return NextResponse.json(data);
-}
+});

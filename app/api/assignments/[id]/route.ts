@@ -11,6 +11,7 @@ import {
   normalizeAssignmentStatus,
 } from "@/lib/assignment-management";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/auth/with-auth";
 
 function parseDate(value: unknown) {
   return value ? new Date(String(value)) : null;
@@ -27,10 +28,10 @@ function assignmentErrorResponse(error: unknown) {
   return NextResponse.json({ error: message }, { status: 500 });
 }
 
-export async function PATCH(
+export const PATCH = withAuth(async (
   request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
   const body = await request.json();
   const status = body.status
@@ -145,12 +146,12 @@ export async function PATCH(
   } catch (error) {
     return assignmentErrorResponse(error);
   }
-}
+});
 
-export async function DELETE(
+export const DELETE = withAuth(async (
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
-) {
+) => {
   const { id } = await params;
 
   try {
@@ -191,4 +192,4 @@ export async function DELETE(
   } catch (error) {
     return assignmentErrorResponse(error);
   }
-}
+});

@@ -31,6 +31,7 @@ import {
 
 import { ui } from "@/lib/ui-styles";
 import { KYC_UI } from "@/lib/kyc-excel/terminology";
+import { apiFetch } from "@/lib/api-client";
 
 type SettingType = "category" | "department" | "location";
 
@@ -73,7 +74,7 @@ export function SettingsContent() {
   }
 
   async function loadSettings() {
-    const response = await fetch("/api/settings", { cache: "no-store" });
+    const response = await apiFetch("/api/settings", { cache: "no-store" });
     const data = await response.json();
     setCategories(data.categories);
     setDepartments(data.departments);
@@ -92,7 +93,7 @@ export function SettingsContent() {
       : "/api/settings";
     const method = editingId ? "PATCH" : "POST";
 
-    await fetch(url, {
+    await apiFetch(url, {
       method,
       body: JSON.stringify(form),
     });
@@ -115,7 +116,7 @@ export function SettingsContent() {
   }
 
   async function handleDelete(type: SettingType, id: string) {
-    await fetch(`/api/settings/${type}/${id}`, { method: "DELETE" });
+    await apiFetch(`/api/settings/${type}/${id}`, { method: "DELETE" });
     await loadSettings();
   }
 

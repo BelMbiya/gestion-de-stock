@@ -25,6 +25,7 @@ import {
 
 import { ui } from "@/lib/ui-styles";
 import { KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
+import { apiFetch } from "@/lib/api-client";
 
 type HistoryAsset = {
   category: string;
@@ -150,7 +151,7 @@ export function HistoryContent() {
 
     async function loadHistory() {
       setIsLoading(true);
-      const response = await fetch(`/api/history${historyQuery}`, { cache: "no-store" });
+      const response = await apiFetch(`/api/history${historyQuery}`, { cache: "no-store" });
       const data: HistoryData = await response.json();
 
       if (!cancelled) {
@@ -169,7 +170,7 @@ export function HistoryContent() {
 
   useEffect(() => {
     async function loadTechnicians() {
-      const response = await fetch("/api/technicians", { cache: "no-store" });
+      const response = await apiFetch("/api/technicians", { cache: "no-store" });
       const data: { technicians: { id: string; name: string }[] } =
         await response.json();
       setTechnicians(

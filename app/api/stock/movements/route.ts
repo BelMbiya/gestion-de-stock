@@ -9,8 +9,9 @@ import { prisma } from "@/lib/prisma";
 import {
   normalizeMovementType,
 } from "@/lib/stock-management";
+import { withAuth } from "@/lib/auth/with-auth";
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request: Request) => {
   const body = await request.json();
   const type = normalizeMovementType(body.type);
   const assetId = String(body.assetId);
@@ -44,4 +45,4 @@ export async function POST(request: Request) {
     }
     throw error;
   }
-}
+});

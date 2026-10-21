@@ -50,6 +50,7 @@ import {
 
 import { ui } from "@/lib/ui-styles";
 import { KYC_IN_STORE_COLUMNS, KYC_OTHER_ASSETS_COLUMNS, KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
+import { apiFetch } from "@/lib/api-client";
 
 type StockAsset = {
   id: string;
@@ -256,7 +257,7 @@ export function StockManagementContent() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const response = await fetch("/api/stock", { cache: "no-store" });
+      const response = await apiFetch("/api/stock", { cache: "no-store" });
       const text = await response.text();
       if (!response.ok) {
         let message = `Erreur ${response.status}`;
@@ -302,7 +303,7 @@ export function StockManagementContent() {
   }, [activeTab]);
 
   async function loadInventorySessions() {
-    const response = await fetch("/api/inventory-sessions", { cache: "no-store" });
+    const response = await apiFetch("/api/inventory-sessions", { cache: "no-store" });
     if (!response.ok) {
       return;
     }
@@ -333,7 +334,7 @@ export function StockManagementContent() {
   async function openTraceability(assetId: string) {
     setTraceAssetId(assetId);
     setTraceData(null);
-    const response = await fetch(`/api/stock/${assetId}/trace`, { cache: "no-store" });
+    const response = await apiFetch(`/api/stock/${assetId}/trace`, { cache: "no-store" });
     if (response.ok) {
       setTraceData(await response.json());
     }
@@ -343,7 +344,7 @@ export function StockManagementContent() {
     if (!confirm("Supprimer cet article et son historique de mouvements ?")) {
       return;
     }
-    await fetch(`/api/stock/${id}`, { method: "DELETE" });
+    await apiFetch(`/api/stock/${id}`, { method: "DELETE" });
     await loadStock();
   }
 
@@ -352,7 +353,7 @@ export function StockManagementContent() {
     status: string,
     notes?: string,
   ) {
-    await fetch(`/api/inventory-checks/${checkId}`, {
+    await apiFetch(`/api/inventory-checks/${checkId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ status, notes }),
@@ -362,7 +363,7 @@ export function StockManagementContent() {
   }
 
   async function closeInventorySession(sessionId: string) {
-    await fetch(`/api/inventory-sessions/${sessionId}`, {
+    await apiFetch(`/api/inventory-sessions/${sessionId}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ close: true }),
@@ -377,7 +378,7 @@ export function StockManagementContent() {
     const url = editingSupplierId
       ? `/api/suppliers/${editingSupplierId}`
       : "/api/suppliers";
-    await fetch(url, {
+    await apiFetch(url, {
       method: editingSupplierId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(supplierForm),
@@ -392,7 +393,7 @@ export function StockManagementContent() {
     if (!confirm("Supprimer ce fournisseur ?")) {
       return;
     }
-    await fetch(`/api/suppliers/${id}`, { method: "DELETE" });
+    await apiFetch(`/api/suppliers/${id}`, { method: "DELETE" });
     await loadStock();
   }
 
@@ -419,7 +420,7 @@ export function StockManagementContent() {
   async function handleArticleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const url = editingArticleId ? `/api/stock/${editingArticleId}` : "/api/stock";
-    await fetch(url, {
+    await apiFetch(url, {
       method: editingArticleId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(articleForm),
@@ -464,7 +465,7 @@ export function StockManagementContent() {
 
   async function handleMovementSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await fetch("/api/stock/movements", {
+    await apiFetch("/api/stock/movements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(movementForm),
@@ -475,7 +476,7 @@ export function StockManagementContent() {
 
   async function startInventorySession() {
     if (!sessionName.trim()) return;
-    await fetch("/api/inventory-sessions", {
+    await apiFetch("/api/inventory-sessions", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name: sessionName }),
@@ -486,7 +487,7 @@ export function StockManagementContent() {
   }
 
   async function openInventorySession(sessionId: string) {
-    const response = await fetch("/api/inventory-sessions", { cache: "no-store" });
+    const response = await apiFetch("/api/inventory-sessions", { cache: "no-store" });
     if (!response.ok) return;
     const payload = (await response.json()) as {
       sessions: typeof inventoryDetail[];

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/auth/with-auth";
 
 const settingTypes = ["category", "location", "department"] as const;
 
@@ -8,10 +9,10 @@ function normalizeType(type: unknown) {
   return settingTypes.find((value) => value === type);
 }
 
-export async function PATCH(
+export const PATCH = withAuth(async (
   request: Request,
   { params }: { params: Promise<{ id: string; type: string }> },
-) {
+) => {
   const { id, type: rawType } = await params;
   const type = normalizeType(rawType);
   const body = await request.json();
@@ -39,12 +40,12 @@ export async function PATCH(
           });
 
   return NextResponse.json({ item });
-}
+});
 
-export async function DELETE(
+export const DELETE = withAuth(async (
   _request: Request,
   { params }: { params: Promise<{ id: string; type: string }> },
-) {
+) => {
   const { id, type: rawType } = await params;
   const type = normalizeType(rawType);
 
@@ -61,4 +62,4 @@ export async function DELETE(
   }
 
   return NextResponse.json({ ok: true });
-}
+});

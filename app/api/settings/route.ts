@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -21,11 +22,11 @@ const getSettingsData = (
     return { categories, departments, locations };
   });
 
-export async function GET() {
+export const GET = withAuth(async () => {
   return NextResponse.json(await getSettingsData());
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request: Request) => {
   const body = await request.json();
   const type = normalizeType(body.type);
 
@@ -51,4 +52,4 @@ export async function POST(request: Request) {
           });
 
   return NextResponse.json({ item }, { status: 201 });
-}
+});

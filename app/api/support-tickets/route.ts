@@ -11,6 +11,7 @@ import {
 } from "@/lib/support-ticket-serializer";
 import { kycAssetListSelect } from "@/lib/kyc-excel/asset-select";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -82,7 +83,7 @@ async function fetchSupportTicketsPayload(
 const getSupportTicketsData = (
   async () => fetchSupportTicketsPayload());
 
-export async function GET(request: Request) {
+export const GET = withAuth(async (request: Request) => {
   const filters = parseSupportTicketSearchParams(new URL(request.url).searchParams);
 
   if (!hasSupportTicketListFilters(filters)) {
@@ -92,9 +93,9 @@ export async function GET(request: Request) {
   return NextResponse.json(
     await fetchSupportTicketsPayload(buildSupportTicketWhere(filters)),
   );
-}
+});
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request: Request) => {
   const body = await request.json();
   const status = normalizeStatus(body.status);
   const history = body.history ?? body.comment;
@@ -129,4 +130,4 @@ export async function POST(request: Request) {
   });
 
   return NextResponse.json({ ticket }, { status: 201 });
-}
+});

@@ -19,6 +19,7 @@ import {
 } from "@/lib/assignment-management";
 import { kycAssetListSelect } from "@/lib/kyc-excel/asset-select";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -142,9 +143,9 @@ const getAssignmentsData = (
     };
   });
 
-export async function GET() {
+export const GET = withAuth(async () => {
   return NextResponse.json(await getAssignmentsData());
-}
+});
 
 function assignmentErrorResponse(error: unknown) {
   if (error instanceof AssignmentError) {
@@ -157,7 +158,7 @@ function assignmentErrorResponse(error: unknown) {
   return NextResponse.json({ error: message }, { status: 500 });
 }
 
-export async function POST(request: Request) {
+export const POST = withAuth(async (request: Request) => {
   const body = await request.json();
   const status = normalizeAssignmentStatus(body.status);
   const assetId = String(body.assetId);
@@ -230,4 +231,4 @@ export async function POST(request: Request) {
   } catch (error) {
     return assignmentErrorResponse(error);
   }
-}
+});

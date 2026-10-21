@@ -6,6 +6,7 @@ import {
 } from "@/lib/assignment-alerts";
 import { prisma } from "@/lib/prisma";
 import { getStockLevelStatus } from "@/lib/stock-management";
+import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -111,6 +112,6 @@ const getNotifications = (
     };
   });
 
-export async function GET() {
+export const GET = withAuth(async () => {
   return NextResponse.json(await getNotifications());
-}
+});

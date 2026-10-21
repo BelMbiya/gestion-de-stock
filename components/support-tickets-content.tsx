@@ -49,6 +49,7 @@ import {
 } from "@/lib/support-ticket-serializer";
 import { KYC_UI } from "@/lib/kyc-excel/terminology";
 import { ui } from "@/lib/ui-styles";
+import { apiFetch } from "@/lib/api-client";
 
 type TicketUpdate = {
   id: string;
@@ -249,7 +250,7 @@ export function SupportTicketsContent() {
     setIsLoading(true);
     setError("");
     try {
-      const response = await fetch(`/api/support-tickets${ticketsQuery}`, {
+      const response = await apiFetch(`/api/support-tickets${ticketsQuery}`, {
         cache: "no-store",
       });
       if (!response.ok) throw new Error("Support tickets API failed");
@@ -277,7 +278,7 @@ export function SupportTicketsContent() {
       : "/api/support-tickets";
     const method = editingTicketId ? "PATCH" : "POST";
 
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -300,7 +301,7 @@ export function SupportTicketsContent() {
 
   async function handleDelete(id: string) {
     if (!window.confirm("Supprimer ce ticket d'assistance ?")) return;
-    await fetch(`/api/support-tickets/${id}`, { method: "DELETE" });
+    await apiFetch(`/api/support-tickets/${id}`, { method: "DELETE" });
     notifyChanged();
     await loadTickets();
   }

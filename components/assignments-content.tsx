@@ -40,6 +40,7 @@ import {
 
 import { ui } from "@/lib/ui-styles";
 import { KYC_IN_STORE_COLUMNS, KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
+import { apiFetch } from "@/lib/api-client";
 
 type ReferenceItem = {
   assignable?: boolean;
@@ -190,7 +191,7 @@ export function AssignmentsContent() {
   async function loadAssignments() {
     setLoadError(null);
     try {
-      const response = await fetch("/api/assignments", { cache: "no-store" });
+      const response = await apiFetch("/api/assignments", { cache: "no-store" });
       const text = await response.text();
       if (!response.ok) {
         setLoadError("Impossible de charger les affectations");
@@ -223,7 +224,7 @@ export function AssignmentsContent() {
     const url = editingId ? `/api/assignments/${editingId}` : "/api/assignments";
     const method = editingId ? "PATCH" : "POST";
 
-    const response = await fetch(url, {
+    const response = await apiFetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(form),
@@ -270,7 +271,7 @@ export function AssignmentsContent() {
   }
 
   async function handleDelete(id: string) {
-    await fetch(`/api/assignments/${id}`, { method: "DELETE" });
+    await apiFetch(`/api/assignments/${id}`, { method: "DELETE" });
     await loadAssignments();
     window.dispatchEvent(new Event("stock-it:notifications-changed"));
   }

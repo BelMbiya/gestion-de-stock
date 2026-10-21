@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { validateAssetImageFile } from "@/lib/asset-image-upload";
 import { KYC_IN_STORE_COLUMNS, KYC_UI } from "@/lib/kyc-excel/terminology";
 import { cn } from "@/lib/utils";
+import { apiFetch } from "@/lib/api-client";
 
 type AssetImageUploadProps = {
   alt: string;
@@ -66,7 +67,7 @@ export function AssetImageUpload({
       const body = new FormData();
       body.append("file", file);
 
-      const response = await fetch("/api/uploads/asset-image", {
+      const response = await apiFetch("/api/uploads/asset-image", {
         method: "POST",
         body,
       });

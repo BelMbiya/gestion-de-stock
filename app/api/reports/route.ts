@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 
 import { KYC_UI } from "@/lib/kyc-excel/terminology";
 import { prisma } from "@/lib/prisma";
+import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
 
@@ -247,6 +248,6 @@ const getReportsData = (
     };
   });
 
-export async function GET() {
+export const GET = withAuth(async () => {
   return NextResponse.json(await getReportsData());
-}
+});
