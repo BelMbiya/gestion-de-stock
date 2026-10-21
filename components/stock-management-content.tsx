@@ -55,7 +55,12 @@ import { apiFetch } from "@/lib/api-client";
 
 type StockAsset = {
   id: string;
+  /** Code materiel genere (MS-0001). */
   sku: string;
+  importRef: string | null;
+  typeId: string;
+  type: string;
+  typePrefix: string;
   barcode: string | null;
   serialNumber: string | null;
   name: string;
@@ -96,6 +101,7 @@ type StockPayload = {
   alerts: StockAsset[];
   assets: StockAsset[];
   categories: { id: string; name: string }[];
+  types: AssetTypeOption[];
   locations: { id: string; name: string }[];
   holders: { id: string; fullName: string; type: string }[];
   movements: {
@@ -142,11 +148,28 @@ type StockPayload = {
   }[];
 };
 
+type AssetTypeOption = {
+  id: string;
+  prefix: string;
+  name: string;
+  family: string;
+  defaultTrackingMode: "SERIALIZED" | "BULK";
+};
+
+/** Types regroupes par famille, dans l'ordre recu (deja trie par famille). */
+function groupTypesByFamily(types: AssetTypeOption[]) {
+  const groups = new Map<string, AssetTypeOption[]>();
+  for (const type of types) {
+    groups.set(type.family, [...(groups.get(type.family) ?? []), type]);
+  }
+  return [...groups];
+}
+
 type ArticleForm = {
   trackingMode: "SERIALIZED" | "BULK";
   barcode: string;
   brand: string;
-  categoryId: string;
+  typeId: string;
   condition: string;
   description: string;
   imageUrl: string;
@@ -158,7 +181,6 @@ type ArticleForm = {
   purchaseValue: string;
   quantityOnHand: string;
   serialNumber: string;
-  sku: string;
   supplierId: string;
   unit: string;
   warrantyUntil: string;
@@ -168,7 +190,7 @@ const emptyArticleForm: ArticleForm = {
   trackingMode: "SERIALIZED",
   barcode: "",
   brand: "",
-  categoryId: "",
+  typeId: "",
   condition: "GOOD",
   description: "",
   imageUrl: "",
@@ -180,7 +202,6 @@ const emptyArticleForm: ArticleForm = {
   purchaseValue: "",
   quantityOnHand: "0",
   serialNumber: "",
-  sku: "",
   supplierId: "",
   unit: "",
   warrantyUntil: "",
@@ -189,14 +210,12 @@ const emptyArticleForm: ArticleForm = {
 /** Champs envoyes : la fiche ne modifie jamais statut, site, quantite ni mode (actions tracees). */
 function articlePayload(form: ArticleForm, isEdit: boolean) {
   const descriptive = {
-    sku: form.sku,
     barcode: form.barcode,
     name: form.name,
     brand: form.brand,
     model: form.model,
     description: form.description,
     imageUrl: form.imageUrl,
-    categoryId: form.categoryId,
     supplierId: form.supplierId,
     condition: form.condition,
     purchaseValue: form.purchaseValue,
@@ -207,7 +226,13 @@ function articlePayload(form: ArticleForm, isEdit: boolean) {
   };
   return isEdit
     ? descriptive
-    : { ...descriptive, trackingMode: form.trackingMode, locationId: form.locationId, quantityOnHand: form.quantityOnHand };
+    : {
+        ...descriptive,
+        typeId: form.typeId,
+        trackingMode: form.trackingMode,
+        locationId: form.locationId,
+        quantityOnHand: form.quantityOnHand,
+      };
 }
 
 type MovementForm = {
@@ -310,6 +335,8 @@ export function StockManagementContent() {
   const [formError, setFormError] = useState<string | null>(null);
   const [stateAsset, setStateAsset] = useState<StockAsset | null>(null);
   const [stateForm, setStateForm] = useState({ target: "", reason: "" });
+  const [typeAsset, setTypeAsset] = useState<StockAsset | null>(null);
+  const [typeForm, setTypeForm] = useState({ typeId: "", reason: "" });
   const [supplierForm, setSupplierForm] = useState({
     code: "",
     name: "",
@@ -458,6 +485,30 @@ export function StockManagementContent() {
     await loadStock();
   }
 
+  function openTypeCorrection(asset: StockAsset) {
+    setFormError(null);
+    setTypeForm({ typeId: "", reason: "" });
+    setIsArticleOpen(false);
+    setTypeAsset(asset);
+  }
+
+  async function handleTypeSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!typeAsset) return;
+    setFormError(null);
+    const response = await apiFetch(`/api/stock/${typeAsset.id}/type`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(typeForm),
+    });
+    if (!response.ok) {
+      setFormError(await readApiError(response, "Correction du type impossible."));
+      return;
+    }
+    setTypeAsset(null);
+    await loadStock();
+  }
+
   function openStateChange(asset: StockAsset) {
     setFormError(null);
     setStateForm({ target: STATE_TARGETS[asset.trackingMode][0][0], reason: "" });
@@ -520,6 +571,8 @@ export function StockManagementContent() {
     return data.assets.filter((asset) =>
       [
         asset.sku,
+        asset.importRef ?? "",
+        asset.type,
         asset.barcode ?? "",
         asset.name,
         asset.brand ?? "",
@@ -570,7 +623,7 @@ export function StockManagementContent() {
       trackingMode: asset.trackingMode,
       barcode: asset.barcode ?? "",
       brand: asset.brand ?? "",
-      categoryId: asset.categoryId,
+      typeId: asset.typeId,
       condition: asset.conditionCode,
       description: asset.description ?? "",
       imageUrl: asset.imageUrl ?? "",
@@ -582,7 +635,6 @@ export function StockManagementContent() {
       purchaseValue: asset.purchaseValue,
       quantityOnHand: String(asset.quantityOnHand),
       serialNumber: asset.serialNumber ?? "",
-      sku: asset.sku,
       supplierId: asset.supplierId,
       unit: asset.unit,
       warrantyUntil: asset.warrantyUntil,
@@ -652,6 +704,8 @@ export function StockManagementContent() {
   }
 
   const movementAsset = data?.assets.find((asset) => asset.id === movementForm.assetId) ?? null;
+  const editingAsset = data?.assets.find((asset) => asset.id === editingArticleId) ?? null;
+  const selectedType = data?.types.find((type) => type.id === articleForm.typeId) ?? null;
 
   if (isLoading) {
     return (
@@ -871,7 +925,10 @@ export function StockManagementContent() {
                         size="sm"
                       />
                     </TableCell>
-                    <TableCell className="font-mono text-xs">{asset.sku}</TableCell>
+                    <TableCell>
+                      <p className="font-mono text-xs text-white">{asset.sku}</p>
+                      {asset.importRef ? <p className="font-mono text-[11px] text-slate-500">{asset.importRef}</p> : null}
+                    </TableCell>
                     <TableCell>
                       <p className="font-medium">{asset.name}</p>
                       <p className="text-xs text-slate-500">
@@ -1366,6 +1423,58 @@ export function StockManagementContent() {
             id="article-stock-form"
             onSubmit={handleArticleSubmit}
           >
+            {editingAsset ? (
+              <div className="grid gap-3 rounded-lg border border-white/10 bg-white/5 p-3 sm:grid-cols-3 md:col-span-2 xl:col-span-3">
+                <div>
+                  <p className="text-xs text-slate-500">Code materiel</p>
+                  <p className="font-mono text-base font-semibold text-white">{editingAsset.sku}</p>
+                </div>
+                <div>
+                  <p className="text-xs text-slate-500">Ref. import</p>
+                  <p className="font-mono text-sm text-slate-300">{editingAsset.importRef ?? "-"}</p>
+                </div>
+                <div className="flex items-end justify-between gap-2">
+                  <div>
+                    <p className="text-xs text-slate-500">Type</p>
+                    <p className="text-sm text-white">{editingAsset.type}</p>
+                  </div>
+                  <Button className={`text-xs ${ui.btnSecondary}`} onClick={() => openTypeCorrection(editingAsset)} type="button">
+                    Corriger le type
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-1 md:col-span-2 xl:col-span-3">
+                <label className="flex flex-col gap-1 text-sm text-slate-300">
+                  Type de materiel *
+                  <select
+                    className={`${ui.input} h-10 rounded-md px-3`}
+                    onChange={(e) => {
+                      const type = data.types.find((t) => t.id === e.target.value);
+                      setArticleForm((f) => ({ ...f, typeId: e.target.value, trackingMode: type?.defaultTrackingMode ?? f.trackingMode }));
+                    }}
+                    required
+                    value={articleForm.typeId}
+                  >
+                    <option value="">Choisir</option>
+                    {groupTypesByFamily(data.types).map(([family, types]) => (
+                      <optgroup key={family} label={family}>
+                        {types.map((t) => (
+                          <option key={t.id} value={t.id}>
+                            {t.name} ({t.prefix})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
+                </label>
+                {selectedType ? (
+                  <p className="text-xs text-slate-500">
+                    Code genere a l&apos;enregistrement : {selectedType.prefix}-0001, {selectedType.prefix}-0002… · famille {selectedType.family}
+                  </p>
+                ) : null}
+              </div>
+            )}
             <div className="space-y-1 text-sm text-slate-300 md:col-span-2 xl:col-span-3">
               Mode de suivi *
               <div className="grid gap-2 sm:grid-cols-2" role="radiogroup">
@@ -1395,7 +1504,6 @@ export function StockManagementContent() {
             </div>
             {(
               [
-                ["sku", `${KYC_UI.NO} *`, true, "text"],
                 ["barcode", KYC_UI.BARCODE, false, "text"],
                 ["name", `${KYC_UI.DESCRIPTION} *`, true, "text"],
                 ["brand", KYC_OTHER_ASSETS_COLUMNS.BRAND, false, "text"],
@@ -1424,22 +1532,6 @@ export function StockManagementContent() {
                 />
               </label>
             ))}
-            <label className="flex flex-col gap-1 text-sm text-slate-300">
-              Categorie *
-              <select
-                className={`${ui.input} rounded-md px-3`}
-                onChange={(e) => setArticleForm((f) => ({ ...f, categoryId: e.target.value }))}
-                required
-                value={articleForm.categoryId}
-              >
-                <option value="">Choisir</option>
-                {data.categories.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
             <label className="flex flex-col gap-1 text-sm text-slate-300">
               {KYC_UI.LOCATION}
               <select
@@ -1710,6 +1802,58 @@ export function StockManagementContent() {
             </label>
             <Button className={ui.btnPrimary} type="submit">
               Enregistrer
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={(open) => (open ? null : setTypeAsset(null))} open={typeAsset !== null}>
+        <DialogContent className="w-[min(calc(100vw-2rem),32rem)] max-w-none border-white/10 bg-[#11183b] p-6 text-white sm:max-w-none">
+          <DialogHeader>
+            <DialogTitle>Corriger le type : {typeAsset?.name}</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Code actuel {typeAsset?.sku} ({typeAsset?.type}). Un nouveau code du bon type est attribue ; l&apos;ancien reste
+              dans l&apos;historique et n&apos;est jamais reutilise.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="grid gap-3" onSubmit={handleTypeSubmit}>
+            {formError && typeAsset ? (
+              <p className="rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-sm text-red-200" role="alert">
+                {formError}
+              </p>
+            ) : null}
+            <label className="space-y-1 text-xs text-slate-300">
+              Bon type *
+              <select
+                className={`${ui.input} h-10 w-full rounded-md px-3`}
+                onChange={(e) => setTypeForm((f) => ({ ...f, typeId: e.target.value }))}
+                required
+                value={typeForm.typeId}
+              >
+                <option value="">Choisir</option>
+                {groupTypesByFamily(data.types.filter((t) => t.id !== typeAsset?.typeId)).map(([family, types]) => (
+                  <optgroup key={family} label={family}>
+                    {types.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} ({t.prefix})
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+            </label>
+            <label className="space-y-1 text-xs text-slate-300">
+              Motif *
+              <Input
+                className="h-10 border-white/10 bg-white/6"
+                onChange={(e) => setTypeForm((f) => ({ ...f, reason: e.target.value }))}
+                placeholder="Ex. saisi comme laptop, c'est un ordinateur de bureau"
+                required
+                value={typeForm.reason}
+              />
+            </label>
+            <Button className={ui.btnPrimary} type="submit">
+              Attribuer le nouveau code
             </Button>
           </form>
         </DialogContent>

@@ -198,13 +198,33 @@ model Location {
   updatedAt       DateTime         @updatedAt
 }
 
+/// Famille de materiel (Informatique, Peripheriques, Reseau…), regroupe des types.
 model Category {
-  id          String   @id @default(cuid())
-  name        String   @unique
+  id          String      @id @default(cuid())
+  name        String      @unique
   description String?
   assets      Asset[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  types       AssetType[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+/// Type de materiel (Souris, Laptop…) : son prefixe genere les codes (MS-0001, LAP-0001…).
+model AssetType {
+  id                  String       @id @default(cuid())
+  prefix              String       @unique
+  name                String
+  categoryId          String
+  category            Category     @relation(fields: [categoryId], references: [id])
+  defaultTrackingMode TrackingMode @default(SERIALIZED)
+  /// Prochain numero a attribuer ; jamais decremente (un code n'est pas reutilise).
+  nextNumber          Int          @default(1)
+  active              Boolean      @default(true)
+  assets              Asset[]
+  createdAt           DateTime     @default(now())
+  updatedAt           DateTime     @updatedAt
+
+  @@index([categoryId])
 }
 
 model Supplier {
@@ -222,7 +242,12 @@ model Supplier {
 
 model Asset {
   id              String            @id @default(cuid())
+  /// Code materiel genere selon le type (MS-0001) ; definitif.
   sku             String            @unique
+  /// Ancienne reference de l'Excel (KYC-ITEQUI-0046) ; « #2 » pour une ligne multiple decoupee.
+  importRef       String?           @unique
+  typeId          String
+  type            AssetType         @relation(fields: [typeId], references: [id])
   barcode         String?           @unique
   serialNumber    String?           @unique
   name            String
@@ -271,6 +296,7 @@ model Asset {
   @@index([status])
   @@index([barcode])
   @@index([trackingMode])
+  @@index([typeId])
 }
 
 model AssetAssignment {

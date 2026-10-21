@@ -1,14 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { withAuth } from "@/lib/auth/with-auth";
-import { normalizeImageUrl } from "@/lib/asset-image";
+import { createAsset } from "@/lib/catalog/asset-service";
 import { domainErrorResponse } from "@/lib/domain-error";
 import { prisma } from "@/lib/prisma";
-import { StockRuleError } from "@/lib/stock/errors";
 import { movementTypeLabels } from "@/lib/stock/movement-rules";
 import { buildStockAlerts, buildStockSummary } from "@/lib/stock/stock-summary";
-import { normalizeTrackingMode } from "@/lib/stock/tracking-policy";
-import { normalizeAssetCondition } from "@/lib/stock-management";
 import { serializableAssetInclude, serializeAsset } from "@/lib/stock-serializer";
 
 export const dynamic = "force-dynamic";
@@ -17,7 +14,7 @@ const formatDateTime = (value: Date) =>
   value.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 
 export const GET = withAuth(async () => {
-  const [assets, assignments, categories, locations, suppliers, holders, movements, sessions] =
+  const [assets, assignments, categories, types, locations, suppliers, holders, movements, sessions] =
     await Promise.all([
       prisma.asset.findMany({ include: serializableAssetInclude, orderBy: { updatedAt: "desc" } }),
       prisma.assetAssignment.findMany({
@@ -25,6 +22,11 @@ export const GET = withAuth(async () => {
         select: { kind: true, status: true, expectedReturnAt: true },
       }),
       prisma.category.findMany({ orderBy: { name: "asc" } }),
+      prisma.assetType.findMany({
+        where: { active: true },
+        include: { category: true },
+        orderBy: [{ category: { name: "asc" } }, { name: "asc" }],
+      }),
       prisma.location.findMany({ orderBy: { name: "asc" } }),
       prisma.supplier.findMany({
         include: { _count: { select: { assets: true } } },
@@ -64,6 +66,13 @@ export const GET = withAuth(async () => {
     alerts: serialized.filter((asset) => alertIds.has(asset.id)),
     assets: serialized,
     categories,
+    types: types.map((type) => ({
+      id: type.id,
+      prefix: type.prefix,
+      name: type.name,
+      family: type.category.name,
+      defaultTrackingMode: type.defaultTrackingMode,
+    })),
     locations,
     holders,
     suppliers: suppliers.map((supplier) => ({
@@ -106,93 +115,36 @@ export const GET = withAuth(async () => {
   });
 });
 
-function requiredText(value: unknown, label: string) {
-  const text = typeof value === "string" ? value.trim() : "";
-  if (!text) {
-    throw new StockRuleError(`${label} est obligatoire.`);
-  }
-  return text;
-}
-
-const optionalText = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
-
-function nonNegativeInteger(value: unknown, label: string) {
-  const number = value === undefined || value === null || value === "" ? 0 : Number(value);
-  if (!Number.isInteger(number) || number < 0) {
-    throw new StockRuleError(`${label} : un entier positif ou nul est attendu.`);
-  }
-  return number;
-}
-
-/** Cree un article. Unitaire : quantite 1, disponible. En vrac : stock initial trace par une entree. */
+/** Cree un article : le code est genere selon le type, jamais fourni par le client. */
 export const POST = withAuth(async (request: Request, _context, user) => {
   try {
     const body = await request.json();
-    const trackingMode = normalizeTrackingMode(body.trackingMode);
-    if (!trackingMode) {
-      throw new StockRuleError("Choisissez le mode de suivi : unitaire ou en vrac.");
-    }
-
-    const sku = requiredText(body.sku, "La reference (SKU)");
-    const name = requiredText(body.name, "La description");
-    const categoryId = requiredText(body.categoryId, "La categorie");
-    const isBulk = trackingMode === "BULK";
-    const quantityOnHand = isBulk ? nonNegativeInteger(body.quantityOnHand, "Quantite initiale") : 1;
-    const minQuantity = isBulk ? nonNegativeInteger(body.minQuantity, "Seuil d'alerte") : 0;
-
     const asset = await prisma.$transaction(async (tx) => {
-      const created = await tx.asset.create({
-        data: {
-          sku,
-          name,
-          trackingMode,
-          categoryId,
-          quantityOnHand,
-          minQuantity,
-          status: "AVAILABLE",
-          barcode: optionalText(body.barcode),
-          serialNumber: isBulk ? null : optionalText(body.serialNumber),
-          description: optionalText(body.description),
-          brand: optionalText(body.brand),
-          model: optionalText(body.model),
-          imageUrl: normalizeImageUrl(body.imageUrl),
-          condition: normalizeAssetCondition(body.condition),
-          unit: optionalText(body.unit) ?? (isBulk ? "piece" : "unite"),
-          purchaseValue: optionalText(body.purchaseValue),
-          purchaseDate: body.purchaseDate ? new Date(body.purchaseDate) : null,
-          warrantyUntil: body.warrantyUntil ? new Date(body.warrantyUntil) : null,
-          locationId: optionalText(body.locationId),
-          supplierId: optionalText(body.supplierId),
-          createdById: user.id,
+      const created = await createAsset(
+        tx,
+        {
+          typeId: body.typeId,
+          trackingMode: body.trackingMode,
+          name: body.name,
+          serialNumber: body.serialNumber,
+          quantityOnHand: body.quantityOnHand,
+          minQuantity: body.minQuantity,
+          barcode: body.barcode,
+          brand: body.brand,
+          model: body.model,
+          description: body.description,
+          imageUrl: body.imageUrl,
+          condition: body.condition,
+          unit: body.unit,
+          purchaseValue: body.purchaseValue,
+          purchaseDate: body.purchaseDate,
+          warrantyUntil: body.warrantyUntil,
+          locationId: body.locationId,
+          supplierId: body.supplierId,
         },
-        include: serializableAssetInclude,
-      });
-
-      if (isBulk && quantityOnHand > 0) {
-        await tx.stockMovement.create({
-          data: {
-            assetId: created.id,
-            type: "IN",
-            quantity: quantityOnHand,
-            toLocationId: created.locationId,
-            reason: "Stock initial a la creation de l'article",
-            performedById: user.id,
-          },
-        });
-      }
-
-      await tx.auditLog.create({
-        data: {
-          action: "CREATE",
-          entityType: "Asset",
-          entityId: created.id,
-          assetId: created.id,
-          actorId: user.id,
-          description: `Article cree (${trackingMode === "BULK" ? "en vrac" : "unitaire"})`,
-        },
-      });
-
-      return created;
+        user.id,
+      );
+      return tx.asset.findUniqueOrThrow({ where: { id: created.id }, include: serializableAssetInclude });
     });
 
     return NextResponse.json({ asset: serializeAsset(asset) }, { status: 201 });

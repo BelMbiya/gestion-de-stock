@@ -13,6 +13,8 @@ type AssetWithRelations = {
     holder: { id: string; fullName: string };
   }>;
   category: { id: string; name: string };
+  type: { id: string; prefix: string; name: string };
+  importRef: string | null;
   incidents: Array<{ reference: string }>;
   location: { id: string; name: string } | null;
   supplier: { id: string; name: string; code: string } | null;
@@ -48,6 +50,7 @@ type AssetWithRelations = {
 /** Include Prisma correspondant a serializeAsset : detenteur actuel, panne ouverte, referentiels. */
 export const serializableAssetInclude = {
   category: true,
+  type: { select: { id: true, prefix: true, name: true } },
   location: true,
   supplier: true,
   assignments: {
@@ -69,7 +72,12 @@ export function serializeAsset(asset: AssetWithRelations) {
 
   return {
     id: asset.id,
+    /** Code materiel (MS-0001), genere selon le type. */
     sku: asset.sku,
+    importRef: asset.importRef,
+    typeId: asset.type.id,
+    type: asset.type.name,
+    typePrefix: asset.type.prefix,
     barcode: asset.barcode,
     serialNumber: asset.serialNumber,
     name: asset.name,

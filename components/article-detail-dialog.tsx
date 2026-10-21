@@ -25,7 +25,10 @@ import {
 
 export type ArticleDetailData = {
   id: string;
+  /** Code materiel genere (MS-0001). */
   sku: string;
+  importRef?: string | null;
+  type?: string;
   barcode: string | null;
   serialNumber: string | null;
   name: string;
@@ -135,6 +138,7 @@ export function ArticleDetailDialog({
               </DialogTitle>
               <DialogDescription className="text-left font-mono text-sm text-[#6fb6ff]">
                 {asset.sku}
+                {asset.importRef ? <span className="ml-2 text-xs text-slate-400">ref. import {asset.importRef}</span> : null}
               </DialogDescription>
               <div className="flex flex-wrap gap-2">
                 <Badge className={asset.trackingMode === "BULK" ? "bg-sky-500/20 text-sky-200" : "bg-white/10"}>
@@ -160,6 +164,7 @@ export function ArticleDetailDialog({
               Identification
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
+              <DetailField label="Type de materiel" value={asset.type} />
               <DetailField label={KYC_UI.BARCODE} value={asset.barcode} />
               <DetailField label={KYC_UI.SERIAL_NUMBER} value={asset.serialNumber} />
               <DetailField label={KYC_OTHER_ASSETS_COLUMNS.BRAND} value={asset.brand} />

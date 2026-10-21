@@ -23,7 +23,11 @@ const baseAsset = {
 const laptop = {
   ...baseAsset,
   id: "asset-1",
-  sku: "IT-LAP-042",
+  sku: "LAP-0001",
+  importRef: "IT-LAP-042",
+  typeId: "type-lap",
+  type: "Laptop",
+  typePrefix: "LAP",
   barcode: "EAN-LAP-7420",
   serialNumber: "DL-7420-00042",
   name: "Dell Latitude 7420",
@@ -55,7 +59,11 @@ const laptop = {
 const mice = {
   ...baseAsset,
   id: "asset-mice",
-  sku: "STO-0013",
+  sku: "MS-0001",
+  importRef: "STO-0013",
+  typeId: "type-ms",
+  type: "Souris",
+  typePrefix: "MS",
   barcode: null,
   serialNumber: null,
   name: "Mouse vodacom",
@@ -92,8 +100,13 @@ const stockPayload = {
   alerts: [mice],
   assets: [laptop, mice],
   categories: [
-    { id: "category-1", name: "Laptop" },
-    { id: "category-2", name: "Accessoire" },
+    { id: "category-1", name: "Informatique" },
+    { id: "category-2", name: "Périphériques" },
+  ],
+  types: [
+    { id: "type-lap", prefix: "LAP", name: "Laptop", family: "Informatique", defaultTrackingMode: "SERIALIZED" },
+    { id: "type-cbl", prefix: "CBL", name: "Câble", family: "Périphériques", defaultTrackingMode: "BULK" },
+    { id: "type-ms", prefix: "MS", name: "Souris", family: "Périphériques", defaultTrackingMode: "BULK" },
   ],
   locations: [
     { id: "location-1", name: "Siege" },
@@ -220,18 +233,16 @@ describe("StockManagementContent", () => {
 
     await screen.findByText("Dell Latitude 7420");
     fireEvent.click(screen.getByRole("button", { name: `Nouvel ${KYC_IN_STORE_COLUMNS.ITEM}` }));
-    fireEvent.click(screen.getByRole("radio", { name: /En vrac/ }));
-    fireEvent.change(screen.getByLabelText(`${KYC_UI.NO} *`), { target: { value: "STO-0099" } });
+    fireEvent.change(screen.getByLabelText("Type de materiel *"), { target: { value: "type-cbl" } });
     fireEvent.change(screen.getByLabelText(`${KYC_UI.DESCRIPTION} *`), { target: { value: "Cable HDMI" } });
     fireEvent.change(screen.getByLabelText("Quantite initiale"), { target: { value: "25" } });
     fireEvent.change(screen.getByLabelText(/Seuil d'alerte/), { target: { value: "5" } });
-    fireEvent.change(screen.getByLabelText("Categorie *"), { target: { value: "category-2" } });
     fireEvent.click(screen.getByRole("button", { name: `Creer ${KYC_IN_STORE_COLUMNS.ITEM}` }));
 
     await waitFor(() => {
       expect(bodyOf("/api/stock", "POST")).toMatchObject({
+        typeId: "type-cbl",
         trackingMode: "BULK",
-        sku: "STO-0099",
         quantityOnHand: "25",
         minQuantity: "5",
       });
@@ -250,7 +261,7 @@ describe("StockManagementContent", () => {
       expect(bodyOf("/api/stock/asset-1", "PATCH")).toMatchObject({ name: "Dell Latitude 7420 Pro" });
     });
     const body = bodyOf("/api/stock/asset-1", "PATCH");
-    for (const locked of ["status", "locationId", "quantityOnHand", "trackingMode"]) {
+    for (const locked of ["status", "locationId", "quantityOnHand", "trackingMode", "sku", "typeId", "categoryId"]) {
       expect(body).not.toHaveProperty(locked);
     }
   });

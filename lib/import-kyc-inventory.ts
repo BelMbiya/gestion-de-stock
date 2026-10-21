@@ -7,11 +7,12 @@ import type { PrismaClient } from "./generated/prisma/client";
 
 import { KYC_EXCEL_FILE, KYC_EXCEL_SHEET_NAMES } from "./kyc-excel/sheet-names";
 import {
-  inferCategory,
   parseAllKycSheets,
   projectSheetsToAssets,
 } from "./kyc-excel/sheet-parsers";
+import { KYC_TYPE_OVERRIDES } from "./catalog/type-overrides";
 import { locationCode } from "./kyc-excel/shared";
+import { planAssetCodesMigration } from "./migrations/asset-codes";
 import {
   holderKeyFor,
   planTrackingAndHoldersMigration,
@@ -138,14 +139,7 @@ export async function seedKycInventory(
     holderIds.set(holder.key, createdHolder.id);
   }
 
-  const locationNames = new Set<string>();
-  const categoryNames = new Set<string>();
-
-  for (const item of items) {
-    locationNames.add(item.locationName ?? "Mandala Square");
-    categoryNames.add(inferCategory(item.name, item.assetGroup));
-  }
-
+  const locationNames = new Set(items.map((item) => item.locationName ?? "Mandala Square"));
   const locations = new Map<string, string>();
   for (const name of [...locationNames].sort()) {
     const code = locationCode(name) || "DEFAULT";
@@ -155,16 +149,6 @@ export async function seedKycInventory(
       create: { code, name },
     });
     locations.set(name, location.id);
-  }
-
-  const categories = new Map<string, string>();
-  for (const name of [...categoryNames].sort()) {
-    const category = await prisma.category.upsert({
-      where: { name },
-      update: {},
-      create: { name },
-    });
-    categories.set(name, category.id);
   }
 
   const supplier = await prisma.supplier.upsert({
@@ -177,27 +161,61 @@ export async function seedKycInventory(
     },
   });
 
+  // Numeros de serie en double dans l'Excel : suffixe -DUPn (le champ est unique).
   const usedSerials = new Map<string, number>();
+  const serials = items.map((item) => {
+    if (!item.serialNumber) return null;
+    const count = usedSerials.get(item.serialNumber) ?? 0;
+    usedSerials.set(item.serialNumber, count + 1);
+    return count > 0 ? `${item.serialNumber}-DUP${count + 1}` : item.serialNumber;
+  });
+
+  // Memes regles que la migration du lot 4 : type, code, decoupage des lignes multiples, famille.
+  const types = await prisma.assetType.findMany();
+  const typesByPrefix = new Map(types.map((type) => [type.prefix, type]));
+  const codePlan = planAssetCodesMigration(
+    {
+      assets: items.map((item, index) => ({
+        id: String(index),
+        sku: item.sku,
+        importRef: null,
+        name: item.name,
+        trackingMode: trackingModeForGroup(item.assetGroup),
+        status: item.status,
+        serialNumber: serials[index],
+        typePrefix: null,
+        hasActiveAssignment: holderKeyFor(item.custodianName) !== null,
+        categoryName: "",
+      })),
+      categories: [],
+      types: [],
+    },
+    KYC_TYPE_OVERRIDES,
+  );
+  if (codePlan.blocking) {
+    throw new Error(
+      `Materiels sans type : ${codePlan.unclassified.map((item) => `${item.name} (${item.sku})`).join(", ")}. ` +
+        "Fixez leur type dans lib/catalog/type-overrides.ts.",
+    );
+  }
+
   let created = 0;
-
-  for (const item of items) {
-    const baseSerial = item.serialNumber;
-    let serialNumber = baseSerial;
-    if (baseSerial) {
-      const count = usedSerials.get(baseSerial) ?? 0;
-      if (count > 0) {
-        serialNumber = `${baseSerial}-DUP${count + 1}`;
-      }
-      usedSerials.set(baseSerial, count + 1);
+  for (const planned of codePlan.codes) {
+    const index = Number(planned.sourceAssetId);
+    const item = items[index];
+    const type = typesByPrefix.get(planned.prefix);
+    if (!type) {
+      throw new Error(`Type ${planned.prefix} absent de la base : appliquez les migrations avant le seed.`);
     }
-
-    const categoryName = inferCategory(item.name, item.assetGroup);
     const trackingMode = trackingModeForGroup(item.assetGroup);
     const asset = await prisma.asset.create({
       data: {
-        sku: item.sku,
-        serialNumber,
-        name: item.name,
+        sku: planned.code,
+        importRef: planned.importRef,
+        typeId: type.id,
+        categoryId: type.categoryId,
+        serialNumber: planned.isCopy ? null : serials[index],
+        name: planned.name,
         description: item.description,
         brand: item.brand,
         model: item.model,
@@ -216,7 +234,6 @@ export async function seedKycInventory(
         unit: item.unit,
         purchaseValue: item.purchaseValue,
         purchaseDate: item.purchaseDate,
-        categoryId: categories.get(categoryName)!,
         locationId: locations.get(item.locationName ?? "Mandala Square"),
         supplierId: supplier.id,
         createdById: adminUserId,
@@ -224,27 +241,24 @@ export async function seedKycInventory(
     });
 
     const holderKey = holderKeyFor(item.custodianName);
-    const holderId = holderKey ? holderIds.get(holderKey.key) : undefined;
+    const holderId = holderKey && !planned.isCopy ? holderIds.get(holderKey.key) : undefined;
     if (holderId) {
       await prisma.assetAssignment.create({
-        data: {
-          assetId: asset.id,
-          holderId,
-          kind: "DOTATION",
-          status: "ACTIVE",
-          notes: "Import KYC",
-        },
+        data: { assetId: asset.id, holderId, kind: "DOTATION", status: "ACTIVE", notes: "Import KYC" },
       });
     }
 
     created += 1;
   }
 
+  for (const [prefix, nextNumber] of Object.entries(codePlan.typeCounters)) {
+    await prisma.assetType.update({ where: { prefix }, data: { nextNumber } });
+  }
+
   return {
     created,
     items: items.length,
     locations: locations.size,
-    categories: categories.size,
     holders: holderIds.size,
   };
 }

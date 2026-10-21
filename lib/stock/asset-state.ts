@@ -87,6 +87,9 @@ const LOCKED_FIELDS: Record<string, string> = {
   quantityOnHand:
     "La quantite ne se modifie pas depuis la fiche : enregistrez un mouvement (entree, sortie ou ajustement).",
   trackingMode: "Le mode de suivi est fixe a la creation de l'article.",
+  sku: "Le code materiel est definitif : il est genere a la creation et ne se modifie pas.",
+  typeId: "Le type se corrige par « Corriger le type » (nouveau code, ancien conserve dans l'historique).",
+  categoryId: "La categorie decoule du type de materiel.",
 };
 
 /** Refuse les champs qui ne peuvent changer qu'a travers une action tracee. */

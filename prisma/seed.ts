@@ -55,7 +55,7 @@ async function main() {
   const reset = process.argv.includes("--reset");
   const result = await seedKycInventory(prisma, admin.id, { reset });
   console.log(
-    `Seed KYC termine: ${result.created} actifs, ${result.locations} sites, ${result.categories} categories.`,
+    `Seed KYC termine: ${result.created} actifs codes, ${result.locations} sites, ${result.holders} detenteurs.`,
   );
 }
 

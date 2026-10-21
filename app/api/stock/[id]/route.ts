@@ -40,17 +40,15 @@ export const PATCH = withAuth(async (request: Request, { params }: Context, user
       }
     }
 
-    const sku = optional(body.sku);
     const name = optional(body.name);
-    if (sku === null || name === null) {
-      throw new StockRuleError("La reference et la description ne peuvent pas etre vides.");
+    if (name === null) {
+      throw new StockRuleError("La description ne peut pas etre vide.");
     }
 
     const asset = await prisma.$transaction(async (tx) => {
       const updated = await tx.asset.update({
         where: { id },
         data: {
-          sku,
           name,
           minQuantity,
           barcode: optional(body.barcode),
@@ -64,7 +62,6 @@ export const PATCH = withAuth(async (request: Request, { params }: Context, user
           purchaseValue: optional(body.purchaseValue),
           purchaseDate: optionalDate(body.purchaseDate),
           warrantyUntil: optionalDate(body.warrantyUntil),
-          categoryId: optional(body.categoryId) ?? undefined,
           supplierId: optional(body.supplierId),
           systemOs: optional(body.systemOs),
           storageRam: optional(body.storageRam),

@@ -19,6 +19,8 @@ const MODELS = [
   "incident",
   "inventoryCheck",
   "supportTicket",
+  "category",
+  "assetType",
 ] as const;
 
 export type FakeModelName = (typeof MODELS)[number];
@@ -146,6 +148,17 @@ export const mice = (overrides: Partial<Row> = {}): Row => ({
   quantityOnHand: 129,
   minQuantity: 0,
   locationId: "loc-mandala",
+  ...overrides,
+});
+
+export const assetType = (overrides: Partial<Row> = {}): Row => ({
+  id: "type-lap",
+  prefix: "LAP",
+  name: "Laptop",
+  categoryId: "cat-info",
+  defaultTrackingMode: "SERIALIZED",
+  nextNumber: 1,
+  active: true,
   ...overrides,
 });
 

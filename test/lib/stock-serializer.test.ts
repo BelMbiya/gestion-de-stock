@@ -4,7 +4,9 @@ import { serializeAsset } from "@/lib/stock-serializer";
 
 const base = {
   id: "a1",
-  sku: "IT-001",
+  sku: "SW-0001",
+  importRef: "KYC-ARCHIV-0350",
+  type: { id: "type-sw", prefix: "SW", name: "Switch" },
   barcode: "EAN-001",
   serialNumber: "SN-1",
   name: "Routeur",
@@ -44,6 +46,11 @@ describe("stock-serializer", () => {
     const serialized = serializeAsset(base);
 
     expect(serialized).toMatchObject({
+      sku: "SW-0001",
+      importRef: "KYC-ARCHIV-0350",
+      typeId: "type-sw",
+      type: "Switch",
+      typePrefix: "SW",
       trackingMode: "SERIALIZED",
       trackingModeLabel: "Unitaire",
       stockStatus: "NONE",
