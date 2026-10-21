@@ -1,14 +1,16 @@
-import {
-  assetStatusLabels,
-  conditionLabels,
-  getStockLevelLabel,
-  getStockLevelStatus,
-} from "@/lib/stock-management";
+import type { TrackingMode } from "@/lib/generated/prisma/enums";
+import { assetStatusLabels } from "@/lib/stock/asset-state";
+import { getTrackingPolicy, stockLevelLabels, trackingModeLabels } from "@/lib/stock/tracking-policy";
+
+import { conditionLabels } from "@/lib/stock-management";
 
 type AssetWithRelations = {
+  /** Affectation active uniquement (filtre status = ACTIVE dans la requete). */
   assignments: Array<{
-    assignedTo: { name: string | null } | null;
-    department: { name: string } | null;
+    id: string;
+    kind: string;
+    expectedReturnAt: Date | null;
+    holder: { id: string; fullName: string };
   }>;
   category: { id: string; name: string };
   incidents: Array<{ reference: string }>;
@@ -21,17 +23,16 @@ type AssetWithRelations = {
   createdAt: Date;
   description: string | null;
   id: string;
-  maxQuantity: number | null;
   minQuantity: number;
   model: string | null;
   name: string;
   purchaseDate: Date | null;
   purchaseValue: { toString(): string } | null;
   quantityOnHand: number;
-  reorderPoint: number;
   serialNumber: string | null;
   sku: string;
   status: string;
+  trackingMode: TrackingMode;
   unit: string;
   systemOs: string | null;
   storageRam: string | null;
@@ -44,15 +45,27 @@ type AssetWithRelations = {
   warrantyUntil: Date | null;
 };
 
+/** Include Prisma correspondant a serializeAsset : detenteur actuel, panne ouverte, referentiels. */
+export const serializableAssetInclude = {
+  category: true,
+  location: true,
+  supplier: true,
+  assignments: {
+    where: { status: "ACTIVE" as const },
+    include: { holder: { select: { id: true, fullName: true } } },
+    take: 1,
+  },
+  incidents: {
+    where: { status: { notIn: ["RESOLVED" as const, "CLOSED" as const] } },
+    orderBy: { updatedAt: "desc" as const },
+    take: 1,
+  },
+};
+
 export function serializeAsset(asset: AssetWithRelations) {
   const currentAssignment = asset.assignments[0];
   const openIncident = asset.incidents[0];
-  const stockStatus = getStockLevelStatus(
-    asset.quantityOnHand,
-    asset.reorderPoint,
-    asset.minQuantity,
-    asset.maxQuantity,
-  );
+  const stockStatus = getTrackingPolicy(asset.trackingMode).stockLevel(asset);
 
   return {
     id: asset.id,
@@ -67,49 +80,40 @@ export function serializeAsset(asset: AssetWithRelations) {
     systemOs: asset.systemOs,
     storageRam: asset.storageRam,
     ownerLabel: asset.ownerLabel,
+    /** Libelle brut de l'Excel (trace d'import) ; le detenteur reel est `assignedTo`. */
     custodianName: asset.custodianName,
     workstationCode: asset.workstationCode,
     processLabel: asset.processLabel,
     assetGroup: asset.assetGroup,
+    trackingMode: asset.trackingMode,
+    trackingModeLabel: trackingModeLabels[asset.trackingMode],
     category: asset.category.name,
     categoryId: asset.category.id,
     location: asset.location?.name ?? "Non localise",
     locationId: asset.location?.id ?? "",
     supplier: asset.supplier?.name ?? "-",
     supplierId: asset.supplier?.id ?? "",
-    status: assetStatusLabels[asset.status] ?? asset.status,
+    status: assetStatusLabels[asset.status as keyof typeof assetStatusLabels] ?? asset.status,
     statusCode: asset.status,
-    condition: conditionLabels[asset.condition] ?? asset.condition,
+    condition: conditionLabels[asset.condition as keyof typeof conditionLabels] ?? asset.condition,
     conditionCode: asset.condition,
     unit: asset.unit,
     quantityOnHand: asset.quantityOnHand,
     minQuantity: asset.minQuantity,
-    reorderPoint: asset.reorderPoint,
-    maxQuantity: asset.maxQuantity,
     stockStatus,
-    stockStatusLabel: getStockLevelLabel(stockStatus),
-    assignedTo:
-      asset.custodianName ??
-      currentAssignment?.assignedTo?.name ??
-      currentAssignment?.department?.name ??
-      asset.ownerLabel ??
-      "Stock IT",
+    stockStatusLabel: stockLevelLabels[stockStatus],
+    /** Detenteur actuel (affectation active), sinon « En stock ». */
+    assignedTo: currentAssignment?.holder.fullName ?? "En stock",
+    holderId: currentAssignment?.holder.id ?? null,
+    activeAssignmentId: currentAssignment?.id ?? null,
     openIncident: openIncident?.reference ?? null,
     value: asset.purchaseValue ? `$${asset.purchaseValue.toString()}` : "-",
     purchaseValue: asset.purchaseValue?.toString() ?? "",
-    purchaseDate: asset.purchaseDate
-      ? asset.purchaseDate.toISOString().slice(0, 10)
-      : "",
-    warrantyUntil: asset.warrantyUntil
-      ? asset.warrantyUntil.toISOString().slice(0, 10)
-      : "",
-    updatedAt: asset.updatedAt.toLocaleString("fr-FR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    }),
-    createdAt: asset.createdAt.toLocaleString("fr-FR", {
-      dateStyle: "short",
-      timeStyle: "short",
-    }),
+    purchaseDate: asset.purchaseDate ? asset.purchaseDate.toISOString().slice(0, 10) : "",
+    warrantyUntil: asset.warrantyUntil ? asset.warrantyUntil.toISOString().slice(0, 10) : "",
+    updatedAt: asset.updatedAt.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }),
+    createdAt: asset.createdAt.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" }),
   };
 }
+
+export type SerializedAsset = ReturnType<typeof serializeAsset>;

@@ -12,6 +12,11 @@ import {
   projectSheetsToAssets,
 } from "./kyc-excel/sheet-parsers";
 import { locationCode } from "./kyc-excel/shared";
+import {
+  holderKeyFor,
+  planTrackingAndHoldersMigration,
+  trackingModeForGroup,
+} from "./migrations/tracking-and-holders";
 import type { KycExcelSheetName } from "./kyc-excel/sheet-names";
 
 export {
@@ -110,6 +115,28 @@ export async function seedKycInventory(
   await prisma.stockMovement.deleteMany();
   await prisma.assetAssignment.deleteMany();
   await prisma.asset.deleteMany();
+  await prisma.holder.deleteMany();
+
+  // Memes regles que la migration du lot 3 : un detenteur par nom distinct de l'Excel.
+  const holderPlan = planTrackingAndHoldersMigration({
+    assets: items.map((item, index) => ({
+      id: String(index),
+      assetGroup: item.assetGroup,
+      custodianName: item.custodianName,
+      processLabel: item.processLabel,
+      status: item.status,
+      trackingMode: null,
+    })),
+    assignments: [],
+    holders: [],
+  });
+  const holderIds = new Map<string, string>();
+  for (const holder of holderPlan.holdersToCreate) {
+    const createdHolder = await prisma.holder.create({
+      data: { type: holder.type, fullName: holder.fullName, process: holder.process },
+    });
+    holderIds.set(holder.key, createdHolder.id);
+  }
 
   const locationNames = new Set<string>();
   const categoryNames = new Set<string>();
@@ -165,6 +192,7 @@ export async function seedKycInventory(
     }
 
     const categoryName = inferCategory(item.name, item.assetGroup);
+    const trackingMode = trackingModeForGroup(item.assetGroup);
     const asset = await prisma.asset.create({
       data: {
         sku: item.sku,
@@ -180,11 +208,11 @@ export async function seedKycInventory(
         workstationCode: item.workstationCode,
         processLabel: item.processLabel,
         assetGroup: item.assetGroup,
+        trackingMode,
         status: item.status,
         condition: item.condition,
-        quantityOnHand: item.quantityOnHand,
+        quantityOnHand: trackingMode === "SERIALIZED" ? 1 : item.quantityOnHand,
         minQuantity: 0,
-        reorderPoint: 1,
         unit: item.unit,
         purchaseValue: item.purchaseValue,
         purchaseDate: item.purchaseDate,
@@ -195,12 +223,16 @@ export async function seedKycInventory(
       },
     });
 
-    if (item.custodianName) {
+    const holderKey = holderKeyFor(item.custodianName);
+    const holderId = holderKey ? holderIds.get(holderKey.key) : undefined;
+    if (holderId) {
       await prisma.assetAssignment.create({
         data: {
           assetId: asset.id,
+          holderId,
+          kind: "DOTATION",
           status: "ACTIVE",
-          notes: `Import KYC — ${item.custodianName}`,
+          notes: "Import KYC",
         },
       });
     }
@@ -213,5 +245,6 @@ export async function seedKycInventory(
     items: items.length,
     locations: locations.size,
     categories: categories.size,
+    holders: holderIds.size,
   };
 }

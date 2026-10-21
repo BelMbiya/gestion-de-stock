@@ -11,6 +11,7 @@ import {
   Trash2,
   Truck,
   Warehouse,
+  Wrench,
 } from "lucide-react";
 import Link from "next/link";
 import { FormEvent, useEffect, useMemo, useState } from "react";
@@ -73,13 +74,15 @@ type StockAsset = {
   condition: string;
   conditionCode: string;
   unit: string;
+  trackingMode: "SERIALIZED" | "BULK";
+  trackingModeLabel: string;
   quantityOnHand: number;
   minQuantity: number;
-  reorderPoint: number;
-  maxQuantity: number | null;
-  stockStatus: string;
+  stockStatus: "NONE" | "OK" | "LOW" | "OUT";
   stockStatusLabel: string;
   assignedTo: string;
+  holderId: string | null;
+  activeAssignmentId: string | null;
   openIncident: string | null;
   value: string;
   purchaseValue: string;
@@ -94,14 +97,18 @@ type StockPayload = {
   assets: StockAsset[];
   categories: { id: string; name: string }[];
   locations: { id: string; name: string }[];
+  holders: { id: string; fullName: string; type: string }[];
   movements: {
     id: string;
     assetId: string;
     asset: string;
     type: string;
+    typeLabel: string;
     quantity: number;
     fromLocation: string;
     toLocation: string;
+    beneficiary: string | null;
+    performedBy: string;
     reason: string;
     movedAt: string;
   }[];
@@ -119,10 +126,12 @@ type StockPayload = {
     };
   }[];
   summary: {
+    serialized: { total: number; assigned: number };
+    bulk: { references: number; pieces: number };
+    stockAlerts: number;
+    overdueLoans: number;
     available: number;
-    lowStock: number;
-    totalArticles: number;
-    totalQuantity: number;
+    valuedAssets: number;
     totalValue: string;
   };
   suppliers: {
@@ -134,6 +143,7 @@ type StockPayload = {
 };
 
 type ArticleForm = {
+  trackingMode: "SERIALIZED" | "BULK";
   barcode: string;
   brand: string;
   categoryId: string;
@@ -141,23 +151,21 @@ type ArticleForm = {
   description: string;
   imageUrl: string;
   locationId: string;
-  maxQuantity: string;
   minQuantity: string;
   model: string;
   name: string;
   purchaseDate: string;
   purchaseValue: string;
   quantityOnHand: string;
-  reorderPoint: string;
   serialNumber: string;
   sku: string;
-  status: string;
   supplierId: string;
   unit: string;
   warrantyUntil: string;
 };
 
 const emptyArticleForm: ArticleForm = {
+  trackingMode: "SERIALIZED",
   barcode: "",
   brand: "",
   categoryId: "",
@@ -165,21 +173,96 @@ const emptyArticleForm: ArticleForm = {
   description: "",
   imageUrl: "",
   locationId: "",
-  maxQuantity: "",
   minQuantity: "0",
   model: "",
   name: "",
   purchaseDate: "",
   purchaseValue: "",
-  quantityOnHand: "1",
-  reorderPoint: "1",
+  quantityOnHand: "0",
   serialNumber: "",
   sku: "",
-  status: "AVAILABLE",
   supplierId: "",
-  unit: "unite",
+  unit: "",
   warrantyUntil: "",
 };
+
+/** Champs envoyes : la fiche ne modifie jamais statut, site, quantite ni mode (actions tracees). */
+function articlePayload(form: ArticleForm, isEdit: boolean) {
+  const descriptive = {
+    sku: form.sku,
+    barcode: form.barcode,
+    name: form.name,
+    brand: form.brand,
+    model: form.model,
+    description: form.description,
+    imageUrl: form.imageUrl,
+    categoryId: form.categoryId,
+    supplierId: form.supplierId,
+    condition: form.condition,
+    purchaseValue: form.purchaseValue,
+    purchaseDate: form.purchaseDate,
+    warrantyUntil: form.warrantyUntil,
+    ...(form.unit ? { unit: form.unit } : {}),
+    ...(form.trackingMode === "SERIALIZED" ? { serialNumber: form.serialNumber } : { minQuantity: form.minQuantity }),
+  };
+  return isEdit
+    ? descriptive
+    : { ...descriptive, trackingMode: form.trackingMode, locationId: form.locationId, quantityOnHand: form.quantityOnHand };
+}
+
+type MovementForm = {
+  assetId: string;
+  type: string;
+  quantity: string;
+  delta: string;
+  toLocationId: string;
+  holderId: string;
+  reason: string;
+};
+
+const emptyMovementForm: MovementForm = {
+  assetId: "",
+  type: "IN",
+  quantity: "1",
+  delta: "",
+  toLocationId: "",
+  holderId: "",
+  reason: "",
+};
+
+const MOVEMENT_OPTIONS = {
+  BULK: [
+    ["IN", "Entree (reception)"],
+    ["OUT", "Sortie (distribution)"],
+    ["RETURN", "Retour en stock"],
+    ["ADJUSTMENT", "Ajustement (ecart apres recomptage)"],
+    ["TRANSFER", "Transfert de site (ligne entiere)"],
+  ],
+  SERIALIZED: [["TRANSFER", "Transfert de site"]],
+} as const;
+
+const STATE_TARGETS = {
+  SERIALIZED: [
+    ["MAINTENANCE", "Envoyer en maintenance"],
+    ["BROKEN", "Declarer en panne"],
+    ["IN_SERVICE", "Remettre en service"],
+    ["RETIRED", "Reformer"],
+    ["LOST", "Declarer perdu"],
+  ],
+  BULK: [
+    ["IN_SERVICE", "Remettre en service"],
+    ["RETIRED", "Reformer (ne plus gerer)"],
+  ],
+} as const;
+
+async function readApiError(response: Response, fallback: string) {
+  try {
+    const payload = (await response.json()) as { error?: string };
+    return payload.error ?? fallback;
+  } catch {
+    return fallback;
+  }
+}
 
 const tabs = [
   { id: "articles", label: KYC_IN_STORE_COLUMNS.ITEM, icon: Package },
@@ -191,17 +274,25 @@ const tabs = [
 
 type TabId = (typeof tabs)[number]["id"];
 
-function StockBadge({ status }: { status: string }) {
-  if (status === "OUT" || status === "Rupture") {
-    return <Badge className="bg-red-900/40 text-red-200">{status}</Badge>;
+function StockBadge({ asset }: { asset: Pick<StockAsset, "stockStatus" | "stockStatusLabel"> }) {
+  if (asset.stockStatus === "NONE") {
+    return <span className="text-xs text-slate-500">-</span>;
   }
-  if (status === "LOW" || status === "Stock bas") {
-    return <Badge className="bg-slate-700 text-slate-200">{status}</Badge>;
-  }
-  if (status === "OVER" || status === "Surstock") {
-    return <Badge className="bg-slate-600 text-slate-200">{status}</Badge>;
-  }
-  return <Badge className="bg-slate-800 text-slate-300">{status}</Badge>;
+  const tone =
+    asset.stockStatus === "OUT"
+      ? "bg-red-900/40 text-red-200"
+      : asset.stockStatus === "LOW"
+        ? "bg-amber-900/40 text-amber-100"
+        : "bg-slate-800 text-slate-300";
+  return <Badge className={tone}>{asset.stockStatusLabel}</Badge>;
+}
+
+function TrackingBadge({ asset }: { asset: Pick<StockAsset, "trackingMode" | "trackingModeLabel"> }) {
+  return (
+    <Badge className={asset.trackingMode === "BULK" ? "bg-sky-900/40 text-sky-200" : "bg-slate-800 text-slate-300"}>
+      {asset.trackingModeLabel}
+    </Badge>
+  );
 }
 
 export function StockManagementContent() {
@@ -214,14 +305,11 @@ export function StockManagementContent() {
   const [isSupplierOpen, setIsSupplierOpen] = useState(false);
   const [editingArticleId, setEditingArticleId] = useState<string | null>(null);
   const [articleForm, setArticleForm] = useState<ArticleForm>(emptyArticleForm);
-  const [movementForm, setMovementForm] = useState({
-    assetId: "",
-    fromLocationId: "",
-    quantity: "1",
-    reason: "",
-    toLocationId: "",
-    type: "IN",
-  });
+  const [movementForm, setMovementForm] = useState<MovementForm>(emptyMovementForm);
+  const [actionError, setActionError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+  const [stateAsset, setStateAsset] = useState<StockAsset | null>(null);
+  const [stateForm, setStateForm] = useState({ target: "", reason: "" });
   const [supplierForm, setSupplierForm] = useState({
     code: "",
     name: "",
@@ -341,11 +429,39 @@ export function StockManagementContent() {
   }
 
   async function deleteArticle(id: string) {
-    if (!confirm("Supprimer cet article et son historique de mouvements ?")) {
+    if (!confirm("Supprimer cette saisie ? Un article qui a deja un historique ne peut pas etre supprime : reformez-le.")) {
       return;
     }
-    await apiFetch(`/api/stock/${id}`, { method: "DELETE" });
+    setActionError(null);
+    const response = await apiFetch(`/api/stock/${id}`, { method: "DELETE" });
+    if (!response.ok) {
+      setActionError(await readApiError(response, "Suppression impossible."));
+      return;
+    }
     await loadStock();
+  }
+
+  async function handleStateSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!stateAsset) return;
+    setFormError(null);
+    const response = await apiFetch(`/api/stock/${stateAsset.id}/status`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(stateForm),
+    });
+    if (!response.ok) {
+      setFormError(await readApiError(response, "Changement d'etat impossible."));
+      return;
+    }
+    setStateAsset(null);
+    await loadStock();
+  }
+
+  function openStateChange(asset: StockAsset) {
+    setFormError(null);
+    setStateForm({ target: STATE_TARGETS[asset.trackingMode][0][0], reason: "" });
+    setStateAsset(asset);
   }
 
   async function updateInventoryCheck(
@@ -419,12 +535,17 @@ export function StockManagementContent() {
 
   async function handleArticleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    setFormError(null);
     const url = editingArticleId ? `/api/stock/${editingArticleId}` : "/api/stock";
-    await apiFetch(url, {
+    const response = await apiFetch(url, {
       method: editingArticleId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(articleForm),
+      body: JSON.stringify(articlePayload(articleForm, editingArticleId !== null)),
     });
+    if (!response.ok) {
+      setFormError(await readApiError(response, "Enregistrement impossible."));
+      return;
+    }
     setIsArticleOpen(false);
     setEditingArticleId(null);
     setArticleForm(emptyArticleForm);
@@ -435,9 +556,18 @@ export function StockManagementContent() {
     setDetailAsset(asset);
   }
 
+  function openNewArticle() {
+    setFormError(null);
+    setEditingArticleId(null);
+    setArticleForm(emptyArticleForm);
+    setIsArticleOpen(true);
+  }
+
   function openEditArticle(asset: StockAsset) {
+    setFormError(null);
     setEditingArticleId(asset.id);
     setArticleForm({
+      trackingMode: asset.trackingMode,
       barcode: asset.barcode ?? "",
       brand: asset.brand ?? "",
       categoryId: asset.categoryId,
@@ -445,17 +575,14 @@ export function StockManagementContent() {
       description: asset.description ?? "",
       imageUrl: asset.imageUrl ?? "",
       locationId: asset.locationId,
-      maxQuantity: asset.maxQuantity?.toString() ?? "",
       minQuantity: String(asset.minQuantity),
       model: asset.model ?? "",
       name: asset.name,
       purchaseDate: asset.purchaseDate,
       purchaseValue: asset.purchaseValue,
       quantityOnHand: String(asset.quantityOnHand),
-      reorderPoint: String(asset.reorderPoint),
       serialNumber: asset.serialNumber ?? "",
       sku: asset.sku,
-      status: asset.statusCode,
       supplierId: asset.supplierId,
       unit: asset.unit,
       warrantyUntil: asset.warrantyUntil,
@@ -463,14 +590,40 @@ export function StockManagementContent() {
     setIsArticleOpen(true);
   }
 
+  function openMovement(asset?: StockAsset) {
+    setFormError(null);
+    setMovementForm({
+      ...emptyMovementForm,
+      assetId: asset?.id ?? "",
+      type: asset?.trackingMode === "SERIALIZED" ? "TRANSFER" : "IN",
+    });
+    setIsMovementOpen(true);
+  }
+
   async function handleMovementSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    await apiFetch("/api/stock/movements", {
+    setFormError(null);
+    const { assetId, type, quantity, delta, toLocationId, holderId, reason } = movementForm;
+    const body = {
+      assetId,
+      type,
+      reason,
+      ...(type === "ADJUSTMENT" ? { delta } : {}),
+      ...(type === "IN" || type === "OUT" || type === "RETURN" ? { quantity } : {}),
+      ...(type === "TRANSFER" ? { toLocationId } : {}),
+      ...(type === "OUT" && holderId ? { holderId } : {}),
+    };
+    const response = await apiFetch("/api/stock/movements", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(movementForm),
+      body: JSON.stringify(body),
     });
+    if (!response.ok) {
+      setFormError(await readApiError(response, "Mouvement refuse."));
+      return;
+    }
     setIsMovementOpen(false);
+    setMovementForm(emptyMovementForm);
     await loadStock();
   }
 
@@ -497,6 +650,8 @@ export function StockManagementContent() {
       setInventoryDetail(session);
     }
   }
+
+  const movementAsset = data?.assets.find((asset) => asset.id === movementForm.assetId) ?? null;
 
   if (isLoading) {
     return (
@@ -554,19 +709,23 @@ export function StockManagementContent() {
                 columns: [
                   KYC_UI.NO,
                   KYC_UI.DESCRIPTION,
+                  "Suivi",
                   KYC_UI.NUMBER,
                   "Seuil",
                   KYC_UI.LOCATION,
+                  "Detenteur",
                   KYC_UI.STATUS,
                   KYC_UI.RELATIVE_VALUE,
                 ],
                 rows: filteredAssets.map((asset) => [
                   asset.sku,
                   asset.name,
-                  String(asset.quantityOnHand),
-                  String(asset.reorderPoint),
+                  asset.trackingModeLabel,
+                  asset.trackingMode === "BULK" ? `${asset.quantityOnHand} ${asset.unit}` : "1",
+                  asset.trackingMode === "BULK" ? String(asset.minQuantity) : "-",
                   asset.location,
-                  asset.stockStatusLabel,
+                  asset.trackingMode === "SERIALIZED" ? asset.assignedTo : "-",
+                  asset.trackingMode === "BULK" && asset.stockStatus !== "OK" ? asset.stockStatusLabel : asset.status,
                   asset.value,
                 ]),
               },
@@ -574,15 +733,11 @@ export function StockManagementContent() {
             subtitle={`PROCO & Cie - ${filteredAssets.length} ${KYC_IN_STORE_COLUMNS.ITEM}(s)`}
             title={KYC_SHEET_LABELS.IN_STORE}
           />
-          <Button
-            className={ui.btnPrimary}
-            onClick={() => {
-              setEditingArticleId(null);
-              setArticleForm(emptyArticleForm);
-              setIsArticleOpen(true);
-            }}
-            type="button"
-          >
+          <Button className={ui.btnSecondary} onClick={() => openMovement()} type="button">
+            <Truck className="size-4" />
+            Mouvement
+          </Button>
+          <Button className={ui.btnPrimary} onClick={openNewArticle} type="button">
             <Plus className="size-4" />
             Nouvel {KYC_IN_STORE_COLUMNS.ITEM}
           </Button>
@@ -590,52 +745,56 @@ export function StockManagementContent() {
       </header>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <Card className={`${ui.panel} ring-0`}>
-          <CardHeader className={ui.panelHeader}>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <Boxes className="size-4 text-slate-400" />
-              {data.summary.totalArticles}
-            </CardTitle>
-            <CardDescription className="text-slate-400">{KYC_IN_STORE_COLUMNS.ITEM}</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card className={`${ui.panel} ring-0`}>
-          <CardHeader className={ui.panelHeader}>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <Package className="size-4 text-slate-400" />
-              {data.summary.totalQuantity}
-            </CardTitle>
-            <CardDescription className="text-slate-400">Quantite totale</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card className={`${ui.panel} ring-0`}>
-          <CardHeader className={ui.panelHeader}>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <Warehouse className="size-4 text-slate-400" />
-              {data.summary.totalValue}
-            </CardTitle>
-            <CardDescription className="text-slate-400">Valeur stock</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card className={`${ui.panel} ring-0`}>
-          <CardHeader className={ui.panelHeader}>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <AlertTriangle className="size-4 text-slate-400" />
-              {data.summary.lowStock}
-            </CardTitle>
-            <CardDescription className="text-slate-400">Alertes</CardDescription>
-          </CardHeader>
-        </Card>
-        <Card className={`${ui.panel} ring-0`}>
-          <CardHeader className={ui.panelHeader}>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <ClipboardList className="size-4 text-slate-400" />
-              {data.summary.available}
-            </CardTitle>
-            <CardDescription className="text-slate-400">Disponibles</CardDescription>
-          </CardHeader>
-        </Card>
+        {[
+          {
+            icon: Boxes,
+            value: data.summary.serialized.total,
+            label: "Materiel unitaire",
+            hint: `${data.summary.serialized.assigned} affectes`,
+          },
+          {
+            icon: ClipboardList,
+            value: data.summary.available,
+            label: "Unitaires disponibles",
+            hint: "Prets a etre affectes",
+          },
+          {
+            icon: Package,
+            value: data.summary.bulk.references,
+            label: "Articles en vrac",
+            hint: `${data.summary.bulk.pieces} pieces en stock`,
+          },
+          {
+            icon: AlertTriangle,
+            value: data.summary.stockAlerts,
+            label: "Alertes stock",
+            hint: "Vrac en rupture ou sous le seuil",
+          },
+          {
+            icon: Warehouse,
+            value: data.summary.totalValue,
+            label: "Valeur renseignee",
+            hint: `${data.summary.valuedAssets} article(s) valorise(s) sur ${data.assets.length}`,
+          },
+        ].map(({ icon: Icon, value, label, hint }) => (
+          <Card className={`${ui.panel} ring-0`} key={label}>
+            <CardHeader className={ui.panelHeader}>
+              <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                <Icon className="size-4 text-slate-400" />
+                {value}
+              </CardTitle>
+              <CardDescription className="text-slate-400">{label}</CardDescription>
+              <p className="text-xs text-slate-500">{hint}</p>
+            </CardHeader>
+          </Card>
+        ))}
       </div>
+
+      {actionError ? (
+        <p className="rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-sm text-red-200" role="alert">
+          {actionError}
+        </p>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
         {tabs.map((tab) => {
@@ -683,11 +842,10 @@ export function StockManagementContent() {
                     KYC_UI.PHOTO,
                     KYC_UI.NO,
                     KYC_UI.DESCRIPTION,
+                    "Suivi",
                     KYC_IN_STORE_COLUMNS.NUMBER,
-                    "Seuils",
                     KYC_UI.LOCATION,
-                    KYC_IN_STORE_COLUMNS.VENDOR,
-                    KYC_SHEET_LABELS.IN_STORE,
+                    "Detenteur",
                     KYC_UI.STATUS,
                     KYC_UI.INCIDENT,
                     KYC_UI.RELATIVE_VALUE,
@@ -721,19 +879,31 @@ export function StockManagementContent() {
                       </p>
                     </TableCell>
                     <TableCell>
-                      {asset.quantityOnHand} {asset.unit}
+                      <TrackingBadge asset={asset} />
                     </TableCell>
-                    <TableCell className="text-xs text-slate-400">
-                      min {asset.minQuantity} / seuil {asset.reorderPoint}
-                      {asset.maxQuantity ? ` / max ${asset.maxQuantity}` : ""}
+                    <TableCell>
+                      {asset.trackingMode === "BULK" ? (
+                        <div className="flex flex-col gap-1">
+                          <span>
+                            {asset.quantityOnHand} {asset.unit}
+                          </span>
+                          {asset.minQuantity > 0 ? (
+                            <span className="text-xs text-slate-500">seuil {asset.minQuantity}</span>
+                          ) : null}
+                        </div>
+                      ) : (
+                        <span className="text-slate-500">1</span>
+                      )}
                     </TableCell>
                     <TableCell>{asset.location}</TableCell>
-                    <TableCell>{asset.supplier}</TableCell>
-                    <TableCell>
-                      <StockBadge status={asset.stockStatusLabel} />
+                    <TableCell className="text-slate-300">
+                      {asset.trackingMode === "SERIALIZED" ? asset.assignedTo : <span className="text-slate-500">-</span>}
                     </TableCell>
                     <TableCell>
-                      <Badge className="bg-slate-800 text-slate-300">{asset.status}</Badge>
+                      <div className="flex flex-col items-start gap-1">
+                        <Badge className="bg-slate-800 text-slate-300">{asset.status}</Badge>
+                        {asset.trackingMode === "BULK" && asset.stockStatus !== "OK" ? <StockBadge asset={asset} /> : null}
+                      </div>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {asset.openIncident ? (
@@ -770,6 +940,22 @@ export function StockManagementContent() {
                           Trace
                         </Button>
                         <Button
+                          className={`text-xs ${ui.btnSecondary}`}
+                          onClick={() => openMovement(asset)}
+                          type="button"
+                        >
+                          <Truck className="size-3" />
+                          Mouvement
+                        </Button>
+                        <Button
+                          className={`text-xs ${ui.btnSecondary}`}
+                          onClick={() => openStateChange(asset)}
+                          type="button"
+                        >
+                          <Wrench className="size-3" />
+                          Etat
+                        </Button>
+                        <Button
                           aria-label="Supprimer"
                           className="bg-red-900/30 text-xs text-red-200 hover:bg-red-900/50"
                           onClick={() => void deleteArticle(asset.id)}
@@ -791,12 +977,13 @@ export function StockManagementContent() {
       {activeTab === "movements" ? (
         <Card className={`${ui.panel} ${ui.tablePanel} ring-0`}>
           <CardHeader className={`${ui.panelHeader} flex-row items-center justify-between`}>
-            <CardTitle>Mouvements de stock</CardTitle>
-            <Button
-              className={ui.btnPrimary}
-              onClick={() => setIsMovementOpen(true)}
-              type="button"
-            >
+            <div>
+              <CardTitle>Mouvements de stock</CardTitle>
+              <CardDescription className="text-slate-400">
+                Entrees, sorties, retours et ajustements des articles en vrac ; transferts de site.
+              </CardDescription>
+            </div>
+            <Button className={ui.btnPrimary} onClick={() => openMovement()} type="button">
               Enregistrer mouvement
             </Button>
           </CardHeader>
@@ -810,9 +997,10 @@ export function StockManagementContent() {
                     KYC_UI.DESCRIPTION,
                     KYC_UI.TYPE,
                     KYC_UI.QTY,
-                    KYC_UI.FROM,
-                    KYC_UI.TO,
+                    "Site",
+                    "Beneficiaire",
                     KYC_UI.REASON,
+                    "Par",
                   ].map((h) => (
                     <TableHead className="text-xs text-slate-500" key={h}>
                       {h}
@@ -825,13 +1013,25 @@ export function StockManagementContent() {
                   <TableRow className="border-white/6" key={m.id}>
                     <TableCell>{m.movedAt}</TableCell>
                     <TableCell>{m.asset}</TableCell>
-                    <TableCell>{m.type}</TableCell>
-                    <TableCell>{m.quantity}</TableCell>
-                    <TableCell>{m.fromLocation}</TableCell>
-                    <TableCell>{m.toLocation}</TableCell>
-                    <TableCell>{m.reason}</TableCell>
+                    <TableCell>{m.typeLabel}</TableCell>
+                    <TableCell className={m.type === "OUT" || (m.type === "ADJUSTMENT" && m.quantity < 0) ? "text-red-200" : "text-slate-200"}>
+                      {m.type === "OUT" ? `-${m.quantity}` : m.type === "ADJUSTMENT" && m.quantity > 0 ? `+${m.quantity}` : m.type === "IN" || m.type === "RETURN" ? `+${m.quantity}` : m.quantity}
+                    </TableCell>
+                    <TableCell className="text-slate-300">
+                      {m.type === "TRANSFER" ? `${m.fromLocation} → ${m.toLocation}` : "-"}
+                    </TableCell>
+                    <TableCell className="text-slate-300">{m.beneficiary ?? "-"}</TableCell>
+                    <TableCell className="text-slate-300">{m.reason}</TableCell>
+                    <TableCell className="text-slate-400">{m.performedBy}</TableCell>
                   </TableRow>
                 ))}
+                {data.movements.length === 0 ? (
+                  <TableRow>
+                    <TableCell className="py-8 text-center text-sm text-slate-500" colSpan={8}>
+                      Aucun mouvement enregistre.
+                    </TableCell>
+                  </TableRow>
+                ) : null}
               </TableBody>
             </Table>
             </div>
@@ -844,7 +1044,7 @@ export function StockManagementContent() {
           <CardHeader className={ui.panelHeader}>
             <CardTitle>Alertes stock bas et ruptures</CardTitle>
             <CardDescription className="text-slate-400">
-              {KYC_IN_STORE_COLUMNS.ITEM} en seuil bas, rupture ou surstock.
+              Articles en vrac en rupture ou sous leur seuil d&apos;alerte. Le materiel unitaire ne declenche pas d&apos;alerte de stock.
             </CardDescription>
           </CardHeader>
           <CardContent className={ui.tablePanelBody}>
@@ -866,6 +1066,9 @@ export function StockManagementContent() {
                       </TableHead>
                       <TableHead className="w-[14%] px-4 text-slate-400">
                         {KYC_IN_STORE_COLUMNS.NUMBER}
+                      </TableHead>
+                      <TableHead className="w-[10%] px-4 text-slate-400">
+                        Seuil
                       </TableHead>
                       <TableHead className="w-[14%] px-4 text-slate-400">
                         {KYC_UI.LOCATION}
@@ -899,16 +1102,13 @@ export function StockManagementContent() {
                           {asset.quantityOnHand} {asset.unit}
                         </TableCell>
                         <TableCell className="px-4 align-top text-sm text-slate-300">
-                          {asset.reorderPoint}
-                          {asset.minQuantity > 0
-                            ? ` (min. ${asset.minQuantity})`
-                            : null}
+                          {asset.minQuantity > 0 ? asset.minQuantity : "-"}
                         </TableCell>
                         <TableCell className="px-4 align-top text-sm text-slate-300">
                           {asset.location}
                         </TableCell>
                         <TableCell className="px-4 align-top">
-                          <StockBadge status={asset.stockStatusLabel} />
+                          <StockBadge asset={asset} />
                         </TableCell>
                       </TableRow>
                     ))}
@@ -1150,43 +1350,77 @@ export function StockManagementContent() {
                 : `Nouvel ${KYC_IN_STORE_COLUMNS.ITEM}`}
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Tous les champs requis pour une gestion de stock professionnelle.
+              {editingArticleId
+                ? "Informations descriptives. Statut, site et quantite se changent par « Etat », « Mouvement » ou une affectation."
+                : "Choisissez d'abord le mode de suivi : il determine les regles de stock de l'article."}
             </DialogDescription>
           </DialogHeader>
           <div className="min-h-0 flex-1 overflow-y-auto px-6 py-5">
+          {formError && isArticleOpen ? (
+            <p className="mb-4 rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-sm text-red-200" role="alert">
+              {formError}
+            </p>
+          ) : null}
           <form
             className="grid gap-4 md:grid-cols-2 xl:grid-cols-3"
             id="article-stock-form"
             onSubmit={handleArticleSubmit}
           >
+            <div className="space-y-1 text-sm text-slate-300 md:col-span-2 xl:col-span-3">
+              Mode de suivi *
+              <div className="grid gap-2 sm:grid-cols-2" role="radiogroup">
+                {([
+                  ["SERIALIZED", "Unitaire", "Un numero de serie, affecte a un detenteur (laptop, ecran, switch…)"],
+                  ["BULK", "En vrac", "Une quantite en stock, sorties et seuil d'alerte (cables, souris, chaises…)"],
+                ] as const).map(([mode, label, hint]) => (
+                  <button
+                    aria-checked={articleForm.trackingMode === mode}
+                    className={`rounded-lg border px-3 py-2 text-left transition disabled:cursor-not-allowed ${
+                      articleForm.trackingMode === mode
+                        ? "border-red-500/70 bg-red-900/20 text-white"
+                        : "border-white/10 bg-white/5 text-slate-300 disabled:opacity-40"
+                    }`}
+                    disabled={editingArticleId !== null}
+                    key={mode}
+                    onClick={() => setArticleForm((f) => ({ ...f, trackingMode: mode }))}
+                    role="radio"
+                    type="button"
+                  >
+                    <span className="block font-medium">{label}</span>
+                    <span className="text-xs text-slate-400">{hint}</span>
+                  </button>
+                ))}
+              </div>
+              {editingArticleId ? <p className="text-xs text-slate-500">Le mode de suivi est fixe a la creation.</p> : null}
+            </div>
             {(
               [
-                ["sku", `${KYC_UI.NO} *`, articleForm.sku, true],
-                ["barcode", KYC_UI.BARCODE, articleForm.barcode, false],
-                ["name", `${KYC_UI.DESCRIPTION} *`, articleForm.name, true],
-                ["brand", KYC_OTHER_ASSETS_COLUMNS.BRAND, articleForm.brand, false],
-                ["model", KYC_UI.MODEL, articleForm.model, false],
-                ["serialNumber", KYC_UI.SERIAL_NUMBER, articleForm.serialNumber, false],
-                ["quantityOnHand", `${KYC_IN_STORE_COLUMNS.NUMBER} *`, articleForm.quantityOnHand, true],
-                ["unit", "Unite", articleForm.unit, false],
-                ["minQuantity", "Stock minimum", articleForm.minQuantity, false],
-                ["reorderPoint", "Seuil reappro", articleForm.reorderPoint, false],
-                ["maxQuantity", "Stock maximum", articleForm.maxQuantity, false],
-                ["purchaseValue", KYC_UI.PURCHASE_PRICE, articleForm.purchaseValue, false],
-                ["purchaseDate", KYC_UI.PURCHASE_DATE, articleForm.purchaseDate, false],
-                ["warrantyUntil", KYC_UI.WARRANTY_UNTIL, articleForm.warrantyUntil, false],
+                ["sku", `${KYC_UI.NO} *`, true, "text"],
+                ["barcode", KYC_UI.BARCODE, false, "text"],
+                ["name", `${KYC_UI.DESCRIPTION} *`, true, "text"],
+                ["brand", KYC_OTHER_ASSETS_COLUMNS.BRAND, false, "text"],
+                ["model", KYC_UI.MODEL, false, "text"],
+                ...(articleForm.trackingMode === "SERIALIZED"
+                  ? ([["serialNumber", KYC_UI.SERIAL_NUMBER, false, "text"]] as const)
+                  : ([
+                      ...(editingArticleId ? [] : ([["quantityOnHand", "Quantite initiale", false, "number"]] as const)),
+                      ["minQuantity", "Seuil d'alerte (0 = rupture seulement)", false, "number"],
+                      ["unit", "Unite (piece, carton…)", false, "text"],
+                    ] as const)),
+                ["purchaseValue", KYC_UI.PURCHASE_PRICE, false, "number"],
+                ["purchaseDate", KYC_UI.PURCHASE_DATE, false, "date"],
+                ["warrantyUntil", KYC_UI.WARRANTY_UNTIL, false, "date"],
               ] as const
-            ).map(([key, label, value, required]) => (
+            ).map(([key, label, required, type]) => (
               <label className="flex flex-col gap-1 text-sm text-slate-300" key={key}>
                 {label}
                 <Input
                   className="border-white/10 bg-white/6"
-                  onChange={(e) =>
-                    setArticleForm((f) => ({ ...f, [key]: e.target.value }))
-                  }
+                  min={type === "number" ? 0 : undefined}
+                  onChange={(e) => setArticleForm((f) => ({ ...f, [key]: e.target.value }))}
                   required={required}
-                  type={key.includes("Date") ? "date" : key.includes("Quantity") || key === "purchaseValue" || key === "quantityOnHand" ? "number" : "text"}
-                  value={value as string}
+                  type={type}
+                  value={articleForm[key]}
                 />
               </label>
             ))}
@@ -1209,17 +1443,22 @@ export function StockManagementContent() {
             <label className="flex flex-col gap-1 text-sm text-slate-300">
               {KYC_UI.LOCATION}
               <select
-                className={`${ui.input} rounded-md px-3`}
+                className={`${ui.input} rounded-md px-3 disabled:opacity-50`}
+                disabled={editingArticleId !== null}
                 onChange={(e) => setArticleForm((f) => ({ ...f, locationId: e.target.value }))}
+                title={editingArticleId ? "Pour changer de site, enregistrez un transfert" : undefined}
                 value={articleForm.locationId}
               >
-                <option value="">{KYC_UI.ALL}</option>
+                <option value="">Non localise</option>
                 {data.locations.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.name}
                   </option>
                 ))}
               </select>
+              {editingArticleId ? (
+                <span className="text-xs text-slate-500">Changement de site : bouton « Mouvement » (transfert).</span>
+              ) : null}
             </label>
             <label className="flex flex-col gap-1 text-sm text-slate-300">
               {KYC_IN_STORE_COLUMNS.VENDOR}
@@ -1248,21 +1487,6 @@ export function StockManagementContent() {
                 <option value="FAIR">Etat moyen</option>
                 <option value="POOR">Mauvais etat</option>
                 <option value="DAMAGED">Endommage</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1 text-sm text-slate-300">
-              {KYC_UI.STATUS}
-              <select
-                className={`${ui.input} rounded-md px-3`}
-                onChange={(e) => setArticleForm((f) => ({ ...f, status: e.target.value }))}
-                value={articleForm.status}
-              >
-                <option value="AVAILABLE">Disponible</option>
-                <option value="ASSIGNED">Assigne</option>
-                <option value="MAINTENANCE">Maintenance</option>
-                <option value="BROKEN">Critique</option>
-                <option value="RETIRED">Reforme</option>
-                <option value="LOST">Perdu</option>
               </select>
             </label>
             <div className="md:col-span-2 xl:col-span-3">
@@ -1299,76 +1523,193 @@ export function StockManagementContent() {
       </Dialog>
 
       <Dialog onOpenChange={setIsMovementOpen} open={isMovementOpen}>
-        <DialogContent className="w-[min(calc(100vw-2rem),32rem)] max-w-none border-white/10 bg-[#11183b] p-6 text-white sm:max-w-none">
+        <DialogContent className="w-[min(calc(100vw-2rem),36rem)] max-w-none border-white/10 bg-[#11183b] p-6 text-white sm:max-w-none">
           <DialogHeader>
             <DialogTitle>Mouvement de stock</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Materiel unitaire : transfert de site uniquement (remise et retour passent par les affectations).
+            </DialogDescription>
           </DialogHeader>
           <form className="grid gap-3" onSubmit={handleMovementSubmit}>
+            {formError && isMovementOpen ? (
+              <p className="rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-sm text-red-200" role="alert">
+                {formError}
+              </p>
+            ) : null}
             <AssetSearchSelect
               assets={data.assets.map((a) => ({
                 id: a.id,
                 sku: a.sku,
                 name: a.name,
                 serialNumber: a.serialNumber,
-                model: a.model,
+                model: a.trackingModeLabel,
               }))}
-              label={KYC_UI.DESCRIPTION}
-              onValueChange={(assetId) =>
-                setMovementForm((f) => ({ ...f, assetId }))
-              }
+              label={`${KYC_UI.DESCRIPTION} *`}
+              onValueChange={(assetId) => {
+                const asset = data.assets.find((a) => a.id === assetId);
+                setMovementForm((f) => ({
+                  ...f,
+                  assetId,
+                  type: asset?.trackingMode === "SERIALIZED" ? "TRANSFER" : f.type,
+                }));
+              }}
               required
               value={movementForm.assetId}
             />
-            <select
-              className={`${ui.input} rounded-md px-3`}
-              onChange={(e) => setMovementForm((f) => ({ ...f, type: e.target.value }))}
-              value={movementForm.type}
-            >
-              <option value="IN">Entree</option>
-              <option value="OUT">Sortie</option>
-              <option value="RETURN">Retour</option>
-              <option value="ADJUSTMENT">Ajustement (qty absolue)</option>
-              <option value="TRANSFER">Transfert emplacement</option>
-            </select>
-            <Input
-              onChange={(e) => setMovementForm((f) => ({ ...f, quantity: e.target.value }))}
-              placeholder="Quantite"
-              type="number"
-              value={movementForm.quantity}
-            />
-            <select
-              className={`${ui.input} rounded-md px-3`}
-              onChange={(e) =>
-                setMovementForm((f) => ({ ...f, fromLocationId: e.target.value }))
-              }
-              value={movementForm.fromLocationId}
-            >
-              <option value="">Depuis</option>
-              {data.locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-            <select
-              className={`${ui.input} rounded-md px-3`}
-              onChange={(e) => setMovementForm((f) => ({ ...f, toLocationId: e.target.value }))}
-              value={movementForm.toLocationId}
-            >
-              <option value="">Vers</option>
-              {data.locations.map((l) => (
-                <option key={l.id} value={l.id}>
-                  {l.name}
-                </option>
-              ))}
-            </select>
-            <Input
-              onChange={(e) => setMovementForm((f) => ({ ...f, reason: e.target.value }))}
-              placeholder="Motif"
-              value={movementForm.reason}
-            />
+            {movementAsset ? (
+              <p className="rounded-md border border-white/10 bg-slate-900/50 px-3 py-2 text-xs text-slate-300">
+                {movementAsset.trackingModeLabel} · site {movementAsset.location}
+                {movementAsset.trackingMode === "BULK"
+                  ? ` · ${movementAsset.quantityOnHand} ${movementAsset.unit} en stock`
+                  : ` · ${movementAsset.assignedTo}`}
+              </p>
+            ) : null}
+            <label className="space-y-1 text-xs text-slate-300">
+              Type de mouvement *
+              <select
+                className={`${ui.input} h-10 w-full rounded-md px-3`}
+                onChange={(e) => setMovementForm((f) => ({ ...f, type: e.target.value }))}
+                value={movementForm.type}
+              >
+                {MOVEMENT_OPTIONS[movementAsset?.trackingMode ?? "BULK"].map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {movementForm.type === "IN" || movementForm.type === "OUT" || movementForm.type === "RETURN" ? (
+              <label className="space-y-1 text-xs text-slate-300">
+                Quantite *
+                <Input
+                  className="h-10 border-white/10 bg-white/6"
+                  max={movementForm.type === "OUT" && movementAsset ? movementAsset.quantityOnHand : undefined}
+                  min={1}
+                  onChange={(e) => setMovementForm((f) => ({ ...f, quantity: e.target.value }))}
+                  required
+                  step={1}
+                  type="number"
+                  value={movementForm.quantity}
+                />
+              </label>
+            ) : null}
+            {movementForm.type === "ADJUSTMENT" ? (
+              <label className="space-y-1 text-xs text-slate-300">
+                Ecart * (ex. -2 apres recomptage, +3 pour un oubli de saisie)
+                <Input
+                  className="h-10 border-white/10 bg-white/6"
+                  onChange={(e) => setMovementForm((f) => ({ ...f, delta: e.target.value }))}
+                  required
+                  step={1}
+                  type="number"
+                  value={movementForm.delta}
+                />
+                {movementAsset && movementForm.delta && Number.isInteger(Number(movementForm.delta)) ? (
+                  <span className="text-slate-500">
+                    Stock apres ajustement : {movementAsset.quantityOnHand + Number(movementForm.delta)} {movementAsset.unit}
+                  </span>
+                ) : null}
+              </label>
+            ) : null}
+            {movementForm.type === "TRANSFER" ? (
+              <label className="space-y-1 text-xs text-slate-300">
+                Site de destination *
+                <select
+                  className={`${ui.input} h-10 w-full rounded-md px-3`}
+                  onChange={(e) => setMovementForm((f) => ({ ...f, toLocationId: e.target.value }))}
+                  required
+                  value={movementForm.toLocationId}
+                >
+                  <option value="">Choisir</option>
+                  {data.locations
+                    .filter((l) => l.id !== movementAsset?.locationId)
+                    .map((l) => (
+                      <option key={l.id} value={l.id}>
+                        {l.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+            ) : null}
+            {movementForm.type === "OUT" ? (
+              <label className="space-y-1 text-xs text-slate-300">
+                Beneficiaire (facultatif)
+                <select
+                  className={`${ui.input} h-10 w-full rounded-md px-3`}
+                  onChange={(e) => setMovementForm((f) => ({ ...f, holderId: e.target.value }))}
+                  value={movementForm.holderId}
+                >
+                  <option value="">Aucun</option>
+                  {data.holders.map((holder) => (
+                    <option key={holder.id} value={holder.id}>
+                      {holder.fullName}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <label className="space-y-1 text-xs text-slate-300">
+              Motif {movementForm.type === "ADJUSTMENT" ? "*" : ""}
+              <Input
+                className="h-10 border-white/10 bg-white/6"
+                onChange={(e) => setMovementForm((f) => ({ ...f, reason: e.target.value }))}
+                placeholder={movementForm.type === "ADJUSTMENT" ? "Ex. recomptage du 21/10" : "Facultatif"}
+                required={movementForm.type === "ADJUSTMENT"}
+                value={movementForm.reason}
+              />
+            </label>
             <Button className={ui.btnPrimary} type="submit">
-              Valider mouvement
+              Valider le mouvement
+            </Button>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog onOpenChange={(open) => (open ? null : setStateAsset(null))} open={stateAsset !== null}>
+        <DialogContent className="w-[min(calc(100vw-2rem),32rem)] max-w-none border-white/10 bg-[#11183b] p-6 text-white sm:max-w-none">
+          <DialogHeader>
+            <DialogTitle>Changer l&apos;etat : {stateAsset?.name}</DialogTitle>
+            <DialogDescription className="text-slate-400">
+              Etat actuel : {stateAsset?.status}. Chaque changement est trace avec son motif.
+            </DialogDescription>
+          </DialogHeader>
+          <form className="grid gap-3" onSubmit={handleStateSubmit}>
+            {formError && stateAsset ? (
+              <p className="rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-sm text-red-200" role="alert">
+                {formError}
+              </p>
+            ) : null}
+            <label className="space-y-1 text-xs text-slate-300">
+              Nouvel etat *
+              <select
+                className={`${ui.input} h-10 w-full rounded-md px-3`}
+                onChange={(e) => setStateForm((f) => ({ ...f, target: e.target.value }))}
+                value={stateForm.target}
+              >
+                {(stateAsset ? STATE_TARGETS[stateAsset.trackingMode] : []).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {stateAsset?.activeAssignmentId && (stateForm.target === "RETIRED" || stateForm.target === "LOST") ? (
+              <p className="rounded-md border border-amber-700/40 bg-amber-900/20 px-3 py-2 text-xs text-amber-100">
+                Ce materiel est affecte a {stateAsset.assignedTo} : enregistrez d&apos;abord son retour (Affectations).
+              </p>
+            ) : null}
+            <label className="space-y-1 text-xs text-slate-300">
+              Motif *
+              <Input
+                className="h-10 border-white/10 bg-white/6"
+                onChange={(e) => setStateForm((f) => ({ ...f, reason: e.target.value }))}
+                placeholder="Ex. ecran casse, envoye chez le reparateur"
+                required
+                value={stateForm.reason}
+              />
+            </label>
+            <Button className={ui.btnPrimary} type="submit">
+              Enregistrer
             </Button>
           </form>
         </DialogContent>

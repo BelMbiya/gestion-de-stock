@@ -1,117 +1,52 @@
 import { NextResponse } from "next/server";
 
-import {
-  getAssignmentReturnAlert,
-  getDaysUntilDate,
-} from "@/lib/assignment-alerts";
-import { prisma } from "@/lib/prisma";
-import { getStockLevelStatus } from "@/lib/stock-management";
+import { getAssignmentReturnAlert, getDaysUntilDate } from "@/lib/assignment-alerts";
 import { withAuth } from "@/lib/auth/with-auth";
+import { prisma } from "@/lib/prisma";
+import { buildStockAlerts } from "@/lib/stock/stock-summary";
 
 export const dynamic = "force-dynamic";
 
-const getNotifications = (
-  async () => {
-    const [openIncidents, assets, activeAssignments, openSupportTickets] =
-      await Promise.all([
-      prisma.incident.count({
-        where: {
-          status: {
-            notIn: ["RESOLVED", "CLOSED"],
-          },
-        },
-      }),
-      prisma.asset.findMany({
-        select: {
-          id: true,
-          sku: true,
-          name: true,
-          quantityOnHand: true,
-          reorderPoint: true,
-          minQuantity: true,
-          maxQuantity: true,
-          unit: true,
-        },
-      }),
-      prisma.assetAssignment.findMany({
-        where: {
-          status: { in: ["ACTIVE", "TRANSFERRED"] },
-          expectedReturnAt: { not: null },
-        },
-        include: {
-          asset: true,
-          assignedTo: true,
-        },
-      }),
-      prisma.supportTicket.count({
-        where: {
-          status: {
-            notIn: ["RESOLVED", "CLOSED"],
-          },
-        },
-      }),
-    ]);
+export const GET = withAuth(async () => {
+  const [openIncidents, assets, loans, openSupportTickets] = await Promise.all([
+    prisma.incident.count({ where: { status: { notIn: ["RESOLVED", "CLOSED"] } } }),
+    prisma.asset.findMany({
+      where: { trackingMode: "BULK" },
+      select: { id: true, sku: true, name: true, trackingMode: true, status: true, quantityOnHand: true, minQuantity: true, unit: true },
+    }),
+    prisma.assetAssignment.findMany({
+      where: { status: "ACTIVE", kind: "LOAN", expectedReturnAt: { not: null } },
+      include: { asset: true, holder: true },
+    }),
+    prisma.supportTicket.count({ where: { status: { notIn: ["RESOLVED", "CLOSED"] } } }),
+  ]);
 
-    const stockAlerts = assets
-      .map((asset) => {
-        const level = getStockLevelStatus(
-          asset.quantityOnHand,
-          asset.reorderPoint,
-          asset.minQuantity,
-          asset.maxQuantity,
-        );
-        return { asset, level };
-      })
-      .filter(({ level }) => level === "LOW" || level === "OUT" || level === "OVER")
-      .map(({ asset, level }) => ({
-        id: asset.id,
-        sku: asset.sku,
-        name: asset.name,
-        quantityOnHand: asset.quantityOnHand,
-        unit: asset.unit,
+  const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
+  const stockAlerts = buildStockAlerts(assets).map((alert) => ({
+    ...alert,
+    sku: assetsById.get(alert.id)?.sku ?? "",
+    unit: assetsById.get(alert.id)?.unit ?? "",
+  }));
+
+  const assignmentReturnAlerts = loans.flatMap((loan) => {
+    const level = getAssignmentReturnAlert(loan.expectedReturnAt, loan.status);
+    if (level !== "DUE_SOON" && level !== "OVERDUE") return [];
+    return [
+      {
+        id: loan.id,
+        asset: loan.asset.name,
+        agent: loan.holder.fullName,
+        expectedReturnAt: loan.expectedReturnAt!.toLocaleDateString("fr-FR", { dateStyle: "medium" }),
+        daysUntilReturn: getDaysUntilDate(loan.expectedReturnAt!),
         level,
-      }));
-
-    const assignmentReturnAlerts = activeAssignments
-      .map((assignment) => {
-        const alert = getAssignmentReturnAlert(
-          assignment.expectedReturnAt,
-          assignment.status,
-        );
-        return { assignment, alert };
-      })
-      .filter(
-        ({ alert }) => alert === "DUE_SOON" || alert === "OVERDUE",
-      )
-      .map(({ assignment, alert }) => ({
-        id: assignment.id,
-        asset: assignment.asset.name,
-        agent:
-          assignment.assignedTo?.name ??
-          assignment.assignedTo?.email ??
-          "Non assigne",
-        expectedReturnAt: assignment.expectedReturnAt!.toLocaleDateString(
-          "fr-FR",
-          { dateStyle: "medium" },
-        ),
-        daysUntilReturn: getDaysUntilDate(assignment.expectedReturnAt!),
-        level: alert,
-      }));
-
-    return {
-      openIncidents,
-      openSupportTickets,
-      stockAlerts: {
-        count: stockAlerts.length,
-        items: stockAlerts,
       },
-      assignmentReturnAlerts: {
-        count: assignmentReturnAlerts.length,
-        items: assignmentReturnAlerts,
-      },
-    };
+    ];
   });
 
-export const GET = withAuth(async () => {
-  return NextResponse.json(await getNotifications());
+  return NextResponse.json({
+    openIncidents,
+    openSupportTickets,
+    stockAlerts: { count: stockAlerts.length, items: stockAlerts },
+    assignmentReturnAlerts: { count: assignmentReturnAlerts.length, items: assignmentReturnAlerts },
+  });
 });

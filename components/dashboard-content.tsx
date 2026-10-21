@@ -4,8 +4,10 @@ import {
   Activity,
   AlertTriangle,
   ClipboardList,
+  Clock,
   HardDrive,
   MapPin,
+  Package,
   Search,
   ShieldCheck,
   Wrench,
@@ -46,14 +48,14 @@ type DashboardStat = {
   label: string;
   value: string;
   hint: string;
-  icon: "HardDrive" | "Wrench" | "AlertTriangle" | "ShieldCheck";
+  icon: keyof typeof statIcons;
 };
 
 type InventoryItem = {
   sku: string;
   title: string;
   category: string;
-  qty: number;
+  qty: string;
   location: string;
   value: string;
   updated: string;
@@ -79,16 +81,18 @@ type DashboardData = {
 
 const statIcons = {
   HardDrive,
+  Package,
   Wrench,
   AlertTriangle,
   ShieldCheck,
+  Clock,
 };
 
 function StatusBadge({ status }: { status: string }) {
   const tone =
-    status === "Critique" || status === "Perdu"
+    status === "En panne" || status === "Perdu"
       ? "bg-red-900/40 text-red-200"
-      : status === "Maintenance" || status === "Assigne"
+      : status === "Maintenance" || status === "Affecte"
         ? "bg-slate-700 text-slate-200"
         : "bg-slate-800 text-slate-300";
 
@@ -207,7 +211,7 @@ export function DashboardContent() {
                   item.sku,
                   item.title,
                   item.category,
-                  String(item.qty),
+                  item.qty,
                   item.location,
                   item.value,
                   item.status,
@@ -240,7 +244,7 @@ export function DashboardContent() {
           />
         </header>
 
-        <div className="grid shrink-0 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
           {data.stats.map((stat) => {
             const Icon = statIcons[stat.icon];
 

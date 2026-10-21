@@ -1,110 +1,119 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StockManagementContent } from "@/components/stock-management-content";
 import { KYC_IN_STORE_COLUMNS, KYC_UI } from "@/lib/kyc-excel/terminology";
 import { selectKycAsset } from "@/test/helpers/select-kyc-asset";
 
+const baseAsset = {
+  description: null,
+  imageUrl: null,
+  supplier: "-",
+  supplierId: "",
+  condition: "Bon etat",
+  conditionCode: "GOOD",
+  holderId: null,
+  activeAssignmentId: null,
+  custodianName: null,
+  openIncident: null,
+  purchaseDate: "",
+  warrantyUntil: "",
+};
+
+const laptop = {
+  ...baseAsset,
+  id: "asset-1",
+  sku: "IT-LAP-042",
+  barcode: "EAN-LAP-7420",
+  serialNumber: "DL-7420-00042",
+  name: "Dell Latitude 7420",
+  brand: "Dell",
+  model: "7420",
+  category: "Laptop",
+  categoryId: "category-1",
+  location: "Siege",
+  locationId: "location-1",
+  supplier: "PROCO IT Supply",
+  supplierId: "supplier-1",
+  status: "Affecte",
+  statusCode: "ASSIGNED",
+  unit: "unite",
+  trackingMode: "SERIALIZED",
+  trackingModeLabel: "Unitaire",
+  quantityOnHand: 1,
+  minQuantity: 0,
+  stockStatus: "NONE",
+  stockStatusLabel: "-",
+  assignedTo: "PAPY ADIKAKA",
+  holderId: "holder-1",
+  activeAssignmentId: "asg-1",
+  openIncident: "INC-2406-018",
+  value: "$1240",
+  purchaseValue: "1240",
+};
+
+const mice = {
+  ...baseAsset,
+  id: "asset-mice",
+  sku: "STO-0013",
+  barcode: null,
+  serialNumber: null,
+  name: "Mouse vodacom",
+  brand: null,
+  model: null,
+  category: "Accessoire",
+  categoryId: "category-2",
+  location: "Siege",
+  locationId: "location-1",
+  status: "Disponible",
+  statusCode: "AVAILABLE",
+  unit: "piece",
+  trackingMode: "BULK",
+  trackingModeLabel: "En vrac",
+  quantityOnHand: 8,
+  minQuantity: 10,
+  stockStatus: "LOW",
+  stockStatusLabel: "Stock bas",
+  assignedTo: "En stock",
+  value: "-",
+  purchaseValue: "",
+};
+
 const stockPayload = {
   summary: {
-    available: 1,
-    lowStock: 1,
-    totalArticles: 1,
-    totalQuantity: 8,
-    totalValue: "9 920,00 $US",
+    serialized: { total: 1, assigned: 1 },
+    bulk: { references: 1, pieces: 8 },
+    stockAlerts: 1,
+    overdueLoans: 0,
+    available: 0,
+    valuedAssets: 1,
+    totalValue: "1 240,00 $US",
   },
-  alerts: [
-    {
-      id: "asset-alert",
-      sku: "IT-UPS-028",
-      barcode: null,
-      serialNumber: null,
-      name: "APC Smart UPS",
-      description: null,
-      brand: null,
-      model: null,
-      imageUrl: null,
-      category: "Power",
-      categoryId: "category-2",
-      location: "DTC",
-      locationId: "location-2",
-      supplier: "-",
-      supplierId: "",
-      status: "Maintenance",
-      statusCode: "MAINTENANCE",
-      condition: "Bon etat",
-      conditionCode: "GOOD",
-      unit: "piece",
-      quantityOnHand: 1,
-      minQuantity: 2,
-      reorderPoint: 2,
-      maxQuantity: null,
-      stockStatus: "LOW",
-      stockStatusLabel: "Stock bas",
-      assignedTo: "-",
-      openIncident: null,
-      value: "$920",
-      purchaseValue: "920",
-      purchaseDate: "",
-      warrantyUntil: "",
-    },
+  alerts: [mice],
+  assets: [laptop, mice],
+  categories: [
+    { id: "category-1", name: "Laptop" },
+    { id: "category-2", name: "Accessoire" },
   ],
-  assets: [
-    {
-      id: "asset-1",
-      sku: "IT-LAP-042",
-      barcode: "EAN-LAP-7420",
-      serialNumber: "DL-7420-00042",
-      name: "Dell Latitude 7420",
-      description: null,
-      brand: "Dell",
-      model: "7420",
-      imageUrl: null,
-      category: "Laptop",
-      categoryId: "category-1",
-      location: "Siege",
-      locationId: "location-1",
-      supplier: "PROCO IT Supply",
-      supplierId: "supplier-1",
-      status: "Disponible",
-      statusCode: "AVAILABLE",
-      condition: "Bon etat",
-      conditionCode: "GOOD",
-      unit: "piece",
-      quantityOnHand: 8,
-      minQuantity: 2,
-      reorderPoint: 3,
-      maxQuantity: 20,
-      stockStatus: "OK",
-      stockStatusLabel: "OK",
-      assignedTo: "-",
-      openIncident: "INC-2406-018",
-      value: "$9 920",
-      purchaseValue: "1240",
-      purchaseDate: "",
-      warrantyUntil: "",
-    },
+  locations: [
+    { id: "location-1", name: "Siege" },
+    { id: "location-2", name: "ATS" },
   ],
-  categories: [{ id: "category-1", name: "Laptop" }],
-  locations: [{ id: "location-1", name: "Siege" }],
-  suppliers: [
-    {
-      id: "supplier-1",
-      name: "PROCO IT Supply",
-      code: "PROC-IT",
-      assetsCount: 1,
-    },
-  ],
+  holders: [{ id: "holder-2", fullName: "HUGUETTE LEPELE", type: "PERSON" }],
+  suppliers: [{ id: "supplier-1", name: "PROCO IT Supply", code: "PROC-IT", assetsCount: 1 }],
   movements: [
     {
       id: "mov-1",
-      assetId: "asset-1",
-      asset: "Dell Latitude 7420",
-      type: "IN",
-      quantity: 8,
+      assetId: "asset-mice",
+      asset: "Mouse vodacom",
+      type: "OUT",
+      typeLabel: "Sortie stock",
+      quantity: 2,
       fromLocation: "-",
-      toLocation: "Siege",
-      reason: "Reception",
+      toLocation: "-",
+      beneficiary: "HUGUETTE LEPELE",
+      performedBy: "Technicien",
+      reason: "Remplacement",
       movedAt: "03/06/2026 10:00",
     },
   ],
@@ -142,29 +151,24 @@ const inventorySessionsPayload = {
 };
 
 const tracePayload = {
-  asset: stockPayload.assets[0],
-  movements: [
-    {
-      id: "mov-1",
-      typeLabel: "Entree stock",
-      quantity: 8,
-      movedAt: "03/06/2026",
-      reason: "Reception",
-    },
-  ],
-  auditTrail: [
-    {
-      id: "log-1",
-      action: "UPDATE",
-      description: "Quantite ajustee",
-      createdAt: "03/06/2026",
-    },
-  ],
+  asset: laptop,
+  movements: [{ id: "mov-1", typeLabel: "Transfert", quantity: 1, movedAt: "03/06/2026", reason: "Demenagement" }],
+  assignments: [],
+  auditTrail: [{ id: "log-1", action: "ASSIGN", description: "Dotation remise", createdAt: "03/06/2026" }],
 };
 
-describe("StockManagementContent", () => {
-  const fetchMock = vi.fn();
+function bodyOf(url: string, method: string) {
+  const call = fetchMock.mock.calls.find(([calledUrl, init]) => calledUrl === url && init?.method === method);
+  return call ? JSON.parse(String(call[1]?.body)) : null;
+}
 
+const fetchMock = vi.fn();
+
+function rowOf(name: string) {
+  return screen.getByText(name).closest("tr") as HTMLElement;
+}
+
+describe("StockManagementContent", () => {
   beforeEach(() => {
     vi.stubGlobal("confirm", vi.fn(() => true));
     fetchMock.mockImplementation(async (url: string, init?: RequestInit) => {
@@ -178,12 +182,7 @@ describe("StockManagementContent", () => {
               : JSON.stringify(stockPayload)
           : JSON.stringify({ ok: true });
 
-      return {
-        ok: true,
-        status: 200,
-        text: async () => text,
-        json: async () => JSON.parse(text),
-      };
+      return { ok: true, status: 200, text: async () => text, json: async () => JSON.parse(text) };
     });
     vi.stubGlobal("fetch", fetchMock);
   });
@@ -193,85 +192,106 @@ describe("StockManagementContent", () => {
     vi.unstubAllGlobals();
   });
 
+  it("charge le catalogue : mode de suivi, detenteur du materiel unitaire, quantite du vrac", async () => {
+    render(<StockManagementContent />);
+
+    expect(await screen.findByText("Dell Latitude 7420")).toBeInTheDocument();
+    expect(within(rowOf("Dell Latitude 7420")).getByText("Unitaire")).toBeInTheDocument();
+    expect(within(rowOf("Dell Latitude 7420")).getByText("PAPY ADIKAKA")).toBeInTheDocument();
+    expect(within(rowOf("Mouse vodacom")).getByText("En vrac")).toBeInTheDocument();
+    expect(within(rowOf("Mouse vodacom")).getByText("8 piece")).toBeInTheDocument();
+    expect(screen.getByText("INC-2406-018")).toBeInTheDocument();
+    expect(globalThis.fetch).toHaveBeenCalledWith("/api/stock", { cache: "no-store" });
+  });
+
   it("ouvre le popup de detail au clic sur une ligne du catalogue", async () => {
     render(<StockManagementContent />);
 
-    const name = await screen.findByText("Dell Latitude 7420");
-    fireEvent.click(name.closest("tr")!);
+    fireEvent.click(rowOf(await screen.findByText("Dell Latitude 7420").then((el) => el.textContent!)));
 
-    expect(
-      await screen.findByRole("dialog", { name: /Dell Latitude 7420/i }),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("dialog", { name: /Dell Latitude 7420/i })).toBeInTheDocument();
     expect(screen.getByText("Identification")).toBeInTheDocument();
     expect(screen.getByText("EAN-LAP-7420")).toBeInTheDocument();
     expect(screen.getByText("DL-7420-00042")).toBeInTheDocument();
   });
 
-  it("charge le catalogue depuis /api/stock", async () => {
-    render(<StockManagementContent />);
-
-    expect(await screen.findByText("Dell Latitude 7420")).toBeInTheDocument();
-    expect(screen.getByText("INC-2406-018")).toBeInTheDocument();
-    expect(globalThis.fetch).toHaveBeenCalledWith("/api/stock", {
-      cache: "no-store",
-    });
-  });
-
-  it("cree un article via POST /api/stock", async () => {
+  it("cree un article en vrac avec quantite initiale et seuil", async () => {
     render(<StockManagementContent />);
 
     await screen.findByText("Dell Latitude 7420");
     fireEvent.click(screen.getByRole("button", { name: `Nouvel ${KYC_IN_STORE_COLUMNS.ITEM}` }));
-    fireEvent.change(screen.getByLabelText(`${KYC_UI.NO} *`), {
-      target: { value: "IT-KEY-001" },
-    });
-    fireEvent.change(screen.getByLabelText(`${KYC_UI.DESCRIPTION} *`), {
-      target: { value: "Clavier mecanique" },
-    });
-    fireEvent.change(screen.getByLabelText(`${KYC_IN_STORE_COLUMNS.NUMBER} *`), {
-      target: { value: "25" },
-    });
-    fireEvent.change(screen.getByLabelText("Categorie *"), {
-      target: { value: "category-1" },
-    });
+    fireEvent.click(screen.getByRole("radio", { name: /En vrac/ }));
+    fireEvent.change(screen.getByLabelText(`${KYC_UI.NO} *`), { target: { value: "STO-0099" } });
+    fireEvent.change(screen.getByLabelText(`${KYC_UI.DESCRIPTION} *`), { target: { value: "Cable HDMI" } });
+    fireEvent.change(screen.getByLabelText("Quantite initiale"), { target: { value: "25" } });
+    fireEvent.change(screen.getByLabelText(/Seuil d'alerte/), { target: { value: "5" } });
+    fireEvent.change(screen.getByLabelText("Categorie *"), { target: { value: "category-2" } });
     fireEvent.click(screen.getByRole("button", { name: `Creer ${KYC_IN_STORE_COLUMNS.ITEM}` }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/stock",
-        expect.objectContaining({ method: "POST" }),
-      );
+      expect(bodyOf("/api/stock", "POST")).toMatchObject({
+        trackingMode: "BULK",
+        sku: "STO-0099",
+        quantityOnHand: "25",
+        minQuantity: "5",
+      });
     });
   });
 
-  it("modifie un article via PATCH /api/stock/:id", async () => {
+  it("la fiche n'envoie jamais statut, site, quantite ni mode en modification", async () => {
     render(<StockManagementContent />);
 
     await screen.findByText("Dell Latitude 7420");
-    fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
-    fireEvent.change(screen.getByLabelText(`${KYC_UI.DESCRIPTION} *`), {
-      target: { value: "Dell Latitude 7420 Pro" },
-    });
+    fireEvent.click(within(rowOf("Dell Latitude 7420")).getByRole("button", { name: "Modifier" }));
+    fireEvent.change(screen.getByLabelText(`${KYC_UI.DESCRIPTION} *`), { target: { value: "Dell Latitude 7420 Pro" } });
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/stock/asset-1",
-        expect.objectContaining({ method: "PATCH" }),
-      );
+      expect(bodyOf("/api/stock/asset-1", "PATCH")).toMatchObject({ name: "Dell Latitude 7420 Pro" });
     });
+    const body = bodyOf("/api/stock/asset-1", "PATCH");
+    for (const locked of ["status", "locationId", "quantityOnHand", "trackingMode"]) {
+      expect(body).not.toHaveProperty(locked);
+    }
   });
 
-  it("supprime un article via DELETE /api/stock/:id", async () => {
+  it("affiche le refus de l'API au lieu de l'ignorer", async () => {
+    render(<StockManagementContent />);
+    await screen.findByText("Dell Latitude 7420");
+    fetchMock.mockImplementationOnce(async () => ({
+      ok: false,
+      status: 409,
+      text: async () => "",
+      json: async () => ({ error: "Cet article a un historique : reformez-le." }),
+    }));
+
+    fireEvent.click(within(rowOf("Dell Latitude 7420")).getByRole("button", { name: "Supprimer" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("reformez-le");
+  });
+
+  it("supprime une saisie via DELETE /api/stock/:id", async () => {
     render(<StockManagementContent />);
 
     await screen.findByText("Dell Latitude 7420");
-    fireEvent.click(screen.getByRole("button", { name: "Supprimer" }));
+    fireEvent.click(within(rowOf("Dell Latitude 7420")).getByRole("button", { name: "Supprimer" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/stock/asset-1", {
-        method: "DELETE",
-      });
+      expect(fetchMock).toHaveBeenCalledWith("/api/stock/asset-1", { method: "DELETE" });
+    });
+  });
+
+  it("change l'etat d'un materiel avec un motif", async () => {
+    render(<StockManagementContent />);
+
+    await screen.findByText("Dell Latitude 7420");
+    fireEvent.click(within(rowOf("Dell Latitude 7420")).getByRole("button", { name: "Etat" }));
+    fireEvent.change(screen.getByLabelText("Nouvel etat *"), { target: { value: "MAINTENANCE" } });
+    fireEvent.change(screen.getByLabelText("Motif *"), { target: { value: "Ecran casse" } });
+    fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
+
+    await waitFor(() => {
+      expect(bodyOf("/api/stock/asset-1/status", "POST")).toEqual({ target: "MAINTENANCE", reason: "Ecran casse" });
     });
   });
 
@@ -279,39 +299,53 @@ describe("StockManagementContent", () => {
     render(<StockManagementContent />);
 
     await screen.findByText("Dell Latitude 7420");
-    fireEvent.click(screen.getByRole("button", { name: "Trace" }));
+    fireEvent.click(within(rowOf("Dell Latitude 7420")).getByRole("button", { name: "Trace" }));
 
     expect(await screen.findByText(`Tracabilite ${KYC_IN_STORE_COLUMNS.ITEM}`)).toBeInTheDocument();
-    expect(await screen.findByText("Entree stock")).toBeInTheDocument();
-    expect(fetchMock).toHaveBeenCalledWith("/api/stock/asset-1/trace", {
-      cache: "no-store",
-    });
+    expect(await screen.findByText("Transfert")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/stock/asset-1/trace", { cache: "no-store" });
   });
 
-  it("enregistre un mouvement via POST /api/stock/movements", async () => {
+  it("enregistre une sortie d'article en vrac avec beneficiaire", async () => {
     render(<StockManagementContent />);
 
     await screen.findByText("Dell Latitude 7420");
     fireEvent.click(screen.getByRole("button", { name: KYC_UI.MOVEMENTS }));
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer mouvement" }));
-    selectKycAsset("DESCRIPTION", "Dell Latitude 7420");
-    fireEvent.click(screen.getByRole("button", { name: "Valider mouvement" }));
+    selectKycAsset(`${KYC_UI.DESCRIPTION} *`, "Mouse vodacom");
+    fireEvent.change(screen.getByLabelText("Type de mouvement *"), { target: { value: "OUT" } });
+    fireEvent.change(screen.getByLabelText("Quantite *"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("Beneficiaire (facultatif)"), { target: { value: "holder-2" } });
+    fireEvent.click(screen.getByRole("button", { name: "Valider le mouvement" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/stock/movements",
-        expect.objectContaining({ method: "POST" }),
-      );
+      expect(bodyOf("/api/stock/movements", "POST")).toEqual({
+        assetId: "asset-mice",
+        type: "OUT",
+        quantity: "2",
+        holderId: "holder-2",
+        reason: "",
+      });
     });
   });
 
-  it("affiche les alertes stock bas", async () => {
+  it("un materiel unitaire ne propose que le transfert de site", async () => {
+    render(<StockManagementContent />);
+
+    await screen.findByText("Dell Latitude 7420");
+    fireEvent.click(within(rowOf("Dell Latitude 7420")).getByRole("button", { name: "Mouvement" }));
+
+    const typeSelect = screen.getByLabelText("Type de mouvement *");
+    expect(within(typeSelect).getAllByRole("option").map((option) => option.getAttribute("value"))).toEqual(["TRANSFER"]);
+  });
+
+  it("affiche les alertes : uniquement le vrac sous son seuil", async () => {
     render(<StockManagementContent />);
 
     await screen.findByText("Dell Latitude 7420");
     fireEvent.click(screen.getByRole("button", { name: "Alertes" }));
 
-    expect(await screen.findByText("APC Smart UPS")).toBeInTheDocument();
+    expect(await screen.findAllByText("Mouse vodacom")).not.toHaveLength(0);
     expect(screen.getAllByText("Stock bas").length).toBeGreaterThan(0);
   });
 
@@ -320,36 +354,21 @@ describe("StockManagementContent", () => {
 
     await screen.findByText("Dell Latitude 7420");
     fireEvent.click(screen.getByRole("button", { name: KYC_UI.INVENTORY_CHECKS }));
-
-    fireEvent.change(
-      screen.getByPlaceholderText("Nom de la session (ex. Inventaire Q2 2026)"),
-      { target: { value: "Inventaire terrain" } },
-    );
+    fireEvent.change(screen.getByPlaceholderText("Nom de la session (ex. Inventaire Q2 2026)"), {
+      target: { value: "Inventaire terrain" },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Demarrer inventaire" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/inventory-sessions",
-        expect.objectContaining({ method: "POST" }),
-      );
+      expect(fetchMock).toHaveBeenCalledWith("/api/inventory-sessions", expect.objectContaining({ method: "POST" }));
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Reconcilier" }));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith("/api/inventory-sessions", {
-        cache: "no-store",
-      });
-    });
-
     const statusSelect = await screen.findByDisplayValue("Trouve");
     fireEvent.change(statusSelect, { target: { value: "MISSING" } });
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/inventory-checks/check-1",
-        expect.objectContaining({ method: "PATCH" }),
-      );
+      expect(fetchMock).toHaveBeenCalledWith("/api/inventory-checks/check-1", expect.objectContaining({ method: "PATCH" }));
     });
   });
 
@@ -359,19 +378,12 @@ describe("StockManagementContent", () => {
     await screen.findByText("Dell Latitude 7420");
     fireEvent.click(screen.getByRole("button", { name: KYC_IN_STORE_COLUMNS.VENDOR }));
     fireEvent.click(screen.getByRole("button", { name: "Ajouter fournisseur" }));
-    fireEvent.change(screen.getByPlaceholderText("Code fournisseur *"), {
-      target: { value: "NEW-SUP" },
-    });
-    fireEvent.change(screen.getByPlaceholderText("Raison sociale *"), {
-      target: { value: "Nouveau Fournisseur" },
-    });
+    fireEvent.change(screen.getByPlaceholderText("Code fournisseur *"), { target: { value: "NEW-SUP" } });
+    fireEvent.change(screen.getByPlaceholderText("Raison sociale *"), { target: { value: "Nouveau Fournisseur" } });
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/suppliers",
-        expect.objectContaining({ method: "POST" }),
-      );
+      expect(fetchMock).toHaveBeenCalledWith("/api/suppliers", expect.objectContaining({ method: "POST" }));
     });
   });
 
@@ -380,19 +392,12 @@ describe("StockManagementContent", () => {
 
     await screen.findByText("Dell Latitude 7420");
     fireEvent.click(screen.getByRole("button", { name: KYC_IN_STORE_COLUMNS.VENDOR }));
-
-    fireEvent.click(
-      screen.getByRole("button", { name: "Modifier fournisseur PROC-IT" }),
-    );
-
+    fireEvent.click(screen.getByRole("button", { name: "Modifier fournisseur PROC-IT" }));
     await screen.findByText("Modifier le fournisseur");
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/suppliers/supplier-1",
-        expect.objectContaining({ method: "PATCH" }),
-      );
+      expect(fetchMock).toHaveBeenCalledWith("/api/suppliers/supplier-1", expect.objectContaining({ method: "PATCH" }));
     });
   });
 });

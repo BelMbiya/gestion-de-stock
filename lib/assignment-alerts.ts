@@ -17,7 +17,8 @@ export function getAssignmentReturnAlert(
   status: string,
   now = new Date(),
 ): AssignmentReturnAlert {
-  if (status !== "ACTIVE" && status !== "TRANSFERRED") {
+  // « Transfere » cloture l'affectation (le materiel est passe a un autre detenteur).
+  if (status !== "ACTIVE") {
     return null;
   }
 

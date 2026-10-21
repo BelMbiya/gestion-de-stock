@@ -1,42 +1,28 @@
 import { NextResponse } from "next/server";
 
-import type { IncidentStatus } from "@/lib/generated/prisma/client";
-import { prisma } from "@/lib/prisma";
-import {
-  normalizeAssetCondition,
-  normalizeAssetStatus,
-} from "@/lib/stock-management";
-import { normalizeImageUrl } from "@/lib/asset-image";
-import { serializeAsset } from "@/lib/stock-serializer";
 import { withAuth } from "@/lib/auth/with-auth";
+import { normalizeImageUrl } from "@/lib/asset-image";
+import { domainErrorResponse } from "@/lib/domain-error";
+import { prisma } from "@/lib/prisma";
+import { StockRuleError } from "@/lib/stock/errors";
+import { movementTypeLabels } from "@/lib/stock/movement-rules";
+import { buildStockAlerts, buildStockSummary } from "@/lib/stock/stock-summary";
+import { normalizeTrackingMode } from "@/lib/stock/tracking-policy";
+import { normalizeAssetCondition } from "@/lib/stock-management";
+import { serializableAssetInclude, serializeAsset } from "@/lib/stock-serializer";
 
 export const dynamic = "force-dynamic";
 
-const assetInclude = {
-  category: true,
-  location: true,
-  supplier: true,
-  assignments: {
-    include: { assignedTo: true, department: true },
-    orderBy: { assignedAt: "desc" as const },
-    take: 1,
-  },
-  incidents: {
-    where: {
-      status: { notIn: ["RESOLVED", "CLOSED"] satisfies IncidentStatus[] },
-    },
-    orderBy: { updatedAt: "desc" as const },
-    take: 1,
-  },
-};
+const formatDateTime = (value: Date) =>
+  value.toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 
 export const GET = withAuth(async () => {
-  try {
-  const [assets, categories, locations, suppliers, movements, sessions] =
+  const [assets, assignments, categories, locations, suppliers, holders, movements, sessions] =
     await Promise.all([
-      prisma.asset.findMany({
-        include: assetInclude,
-        orderBy: { updatedAt: "desc" },
+      prisma.asset.findMany({ include: serializableAssetInclude, orderBy: { updatedAt: "desc" } }),
+      prisma.assetAssignment.findMany({
+        where: { status: "ACTIVE" },
+        select: { kind: true, status: true, expectedReturnAt: true },
       }),
       prisma.category.findMany({ orderBy: { name: "asc" } }),
       prisma.location.findMany({ orderBy: { name: "asc" } }),
@@ -44,31 +30,25 @@ export const GET = withAuth(async () => {
         include: { _count: { select: { assets: true } } },
         orderBy: { name: "asc" },
       }),
+      prisma.holder.findMany({
+        where: { active: true },
+        select: { id: true, fullName: true, type: true },
+        orderBy: { fullName: "asc" },
+      }),
       prisma.stockMovement.findMany({
-        include: {
-          asset: true,
-          fromLocation: true,
-          toLocation: true,
-          performedBy: true,
-        },
+        include: { asset: true, fromLocation: true, toLocation: true, performedBy: true, holder: true },
         orderBy: { movedAt: "desc" },
         take: 30,
       }),
       prisma.inventorySession.findMany({
-        include: {
-          _count: { select: { checks: true } },
-          checks: { select: { status: true } },
-        },
+        include: { _count: { select: { checks: true } }, checks: { select: { status: true } } },
         orderBy: { startedAt: "desc" },
         take: 10,
       }),
     ]);
 
   const serialized = assets.map(serializeAsset);
-  const alerts = serialized.filter(
-    (asset) => asset.stockStatus === "LOW" || asset.stockStatus === "OUT",
-  );
-
+  const alertIds = new Set(buildStockAlerts(assets).map((alert) => alert.id));
   const totalValue = assets.reduce(
     (sum, asset) => sum + Number(asset.purchaseValue ?? 0) * asset.quantityOnHand,
     0,
@@ -76,20 +56,16 @@ export const GET = withAuth(async () => {
 
   return NextResponse.json({
     summary: {
-      totalArticles: assets.length,
-      totalQuantity: assets.reduce((sum, asset) => sum + asset.quantityOnHand, 0),
-      totalValue: totalValue.toLocaleString("fr-FR", {
-        style: "currency",
-        currency: "USD",
-      }),
-      lowStock: alerts.length,
-      available: serialized.filter((asset) => asset.statusCode === "AVAILABLE")
-        .length,
+      ...buildStockSummary({ assets, assignments, now: new Date() }),
+      available: assets.filter((asset) => asset.trackingMode === "SERIALIZED" && asset.status === "AVAILABLE").length,
+      valuedAssets: assets.filter((asset) => asset.purchaseValue !== null).length,
+      totalValue: totalValue.toLocaleString("fr-FR", { style: "currency", currency: "USD" }),
     },
-    alerts,
+    alerts: serialized.filter((asset) => alertIds.has(asset.id)),
     assets: serialized,
     categories,
     locations,
+    holders,
     suppliers: suppliers.map((supplier) => ({
       id: supplier.id,
       name: supplier.name,
@@ -103,30 +79,21 @@ export const GET = withAuth(async () => {
       assetId: movement.assetId,
       asset: movement.asset.name,
       type: movement.type,
+      typeLabel: movementTypeLabels[movement.type] ?? movement.type,
       quantity: movement.quantity,
       fromLocation: movement.fromLocation?.name ?? "-",
       toLocation: movement.toLocation?.name ?? "-",
-      performedBy: movement.performedBy?.name ?? "Systeme",
+      beneficiary: movement.holder?.fullName ?? null,
+      performedBy: movement.performedBy?.name ?? movement.performedBy?.email ?? "Systeme",
       reason: movement.reason ?? "-",
-      movedAt: movement.movedAt.toLocaleString("fr-FR", {
-        dateStyle: "short",
-        timeStyle: "short",
-      }),
+      movedAt: formatDateTime(movement.movedAt),
     })),
     sessions: sessions.map((session) => ({
       id: session.id,
       name: session.name,
       description: session.description,
-      startedAt: session.startedAt.toLocaleString("fr-FR", {
-        dateStyle: "short",
-        timeStyle: "short",
-      }),
-      endedAt: session.endedAt
-        ? session.endedAt.toLocaleString("fr-FR", {
-            dateStyle: "short",
-            timeStyle: "short",
-          })
-        : null,
+      startedAt: formatDateTime(session.startedAt),
+      endedAt: session.endedAt ? formatDateTime(session.endedAt) : null,
       checksCount: session._count.checks,
       isOpen: !session.endedAt,
       variance: {
@@ -137,56 +104,99 @@ export const GET = withAuth(async () => {
       },
     })),
   });
-  } catch (error) {
-    console.error("[GET /api/stock]", error);
-    const message =
-      error instanceof Error ? error.message : "Erreur chargement du stock";
-    return NextResponse.json({ error: message }, { status: 500 });
-  }
 });
 
-export const POST = withAuth(async (request: Request) => {
-  const body = await request.json();
-  const quantityOnHand = Math.max(0, Number(body.quantityOnHand ?? 1));
-
-  const asset = await prisma.asset.create({
-    data: {
-      sku: String(body.sku),
-      barcode: body.barcode ? String(body.barcode) : null,
-      serialNumber: body.serialNumber ? String(body.serialNumber) : null,
-      name: String(body.name),
-      description: body.description ? String(body.description) : null,
-      brand: body.brand ? String(body.brand) : null,
-      model: body.model ? String(body.model) : null,
-      imageUrl: normalizeImageUrl(body.imageUrl),
-      status: normalizeAssetStatus(body.status),
-      condition: normalizeAssetCondition(body.condition),
-      unit: body.unit ? String(body.unit) : "unite",
-      quantityOnHand,
-      minQuantity: Number(body.minQuantity ?? 0),
-      reorderPoint: Number(body.reorderPoint ?? 1),
-      maxQuantity: body.maxQuantity ? Number(body.maxQuantity) : null,
-      purchaseValue: body.purchaseValue ? String(body.purchaseValue) : null,
-      purchaseDate: body.purchaseDate ? new Date(body.purchaseDate) : null,
-      warrantyUntil: body.warrantyUntil ? new Date(body.warrantyUntil) : null,
-      categoryId: String(body.categoryId),
-      locationId: body.locationId ? String(body.locationId) : null,
-      supplierId: body.supplierId ? String(body.supplierId) : null,
-    },
-    include: assetInclude,
-  });
-
-  if (quantityOnHand > 0) {
-    await prisma.stockMovement.create({
-      data: {
-        assetId: asset.id,
-        type: "IN",
-        quantity: quantityOnHand,
-        toLocationId: asset.locationId,
-        reason: "Stock initial a la creation de l'article",
-      },
-    });
+function requiredText(value: unknown, label: string) {
+  const text = typeof value === "string" ? value.trim() : "";
+  if (!text) {
+    throw new StockRuleError(`${label} est obligatoire.`);
   }
+  return text;
+}
 
-  return NextResponse.json({ asset: serializeAsset(asset) }, { status: 201 });
+const optionalText = (value: unknown) => (typeof value === "string" && value.trim() ? value.trim() : null);
+
+function nonNegativeInteger(value: unknown, label: string) {
+  const number = value === undefined || value === null || value === "" ? 0 : Number(value);
+  if (!Number.isInteger(number) || number < 0) {
+    throw new StockRuleError(`${label} : un entier positif ou nul est attendu.`);
+  }
+  return number;
+}
+
+/** Cree un article. Unitaire : quantite 1, disponible. En vrac : stock initial trace par une entree. */
+export const POST = withAuth(async (request: Request, _context, user) => {
+  try {
+    const body = await request.json();
+    const trackingMode = normalizeTrackingMode(body.trackingMode);
+    if (!trackingMode) {
+      throw new StockRuleError("Choisissez le mode de suivi : unitaire ou en vrac.");
+    }
+
+    const sku = requiredText(body.sku, "La reference (SKU)");
+    const name = requiredText(body.name, "La description");
+    const categoryId = requiredText(body.categoryId, "La categorie");
+    const isBulk = trackingMode === "BULK";
+    const quantityOnHand = isBulk ? nonNegativeInteger(body.quantityOnHand, "Quantite initiale") : 1;
+    const minQuantity = isBulk ? nonNegativeInteger(body.minQuantity, "Seuil d'alerte") : 0;
+
+    const asset = await prisma.$transaction(async (tx) => {
+      const created = await tx.asset.create({
+        data: {
+          sku,
+          name,
+          trackingMode,
+          categoryId,
+          quantityOnHand,
+          minQuantity,
+          status: "AVAILABLE",
+          barcode: optionalText(body.barcode),
+          serialNumber: isBulk ? null : optionalText(body.serialNumber),
+          description: optionalText(body.description),
+          brand: optionalText(body.brand),
+          model: optionalText(body.model),
+          imageUrl: normalizeImageUrl(body.imageUrl),
+          condition: normalizeAssetCondition(body.condition),
+          unit: optionalText(body.unit) ?? (isBulk ? "piece" : "unite"),
+          purchaseValue: optionalText(body.purchaseValue),
+          purchaseDate: body.purchaseDate ? new Date(body.purchaseDate) : null,
+          warrantyUntil: body.warrantyUntil ? new Date(body.warrantyUntil) : null,
+          locationId: optionalText(body.locationId),
+          supplierId: optionalText(body.supplierId),
+          createdById: user.id,
+        },
+        include: serializableAssetInclude,
+      });
+
+      if (isBulk && quantityOnHand > 0) {
+        await tx.stockMovement.create({
+          data: {
+            assetId: created.id,
+            type: "IN",
+            quantity: quantityOnHand,
+            toLocationId: created.locationId,
+            reason: "Stock initial a la creation de l'article",
+            performedById: user.id,
+          },
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          action: "CREATE",
+          entityType: "Asset",
+          entityId: created.id,
+          assetId: created.id,
+          actorId: user.id,
+          description: `Article cree (${trackingMode === "BULK" ? "en vrac" : "unitaire"})`,
+        },
+      });
+
+      return created;
+    });
+
+    return NextResponse.json({ asset: serializeAsset(asset) }, { status: 201 });
+  } catch (error) {
+    return domainErrorResponse(error);
+  }
 });

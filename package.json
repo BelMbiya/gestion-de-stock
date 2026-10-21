@@ -13,7 +13,9 @@
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio",
     "prisma:seed": "tsx prisma/seed.ts",
-    "postinstall": "prisma generate"
+    "postinstall": "prisma generate",
+    "db:backup": "tsx scripts/backup-db.ts",
+    "db:migration-report": "tsx scripts/stock-migration-report.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

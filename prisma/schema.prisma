@@ -92,6 +92,29 @@ enum SupportTicketStatus {
   CLOSED
 }
 
+/// Unitaire : un numero de serie, un detenteur. En vrac : une reference et une quantite.
+enum TrackingMode {
+  SERIALIZED
+  BULK
+}
+
+enum HolderType {
+  PERSON
+  COLLECTIVE
+}
+
+/// Dotation : sans date de retour. Pret : date de retour obligatoire.
+enum AssignmentKind {
+  DOTATION
+  LOAN
+}
+
+enum ReturnOutcome {
+  GOOD
+  TO_REPAIR
+  LOST
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -115,7 +138,8 @@ model User {
   departmentId      String?
   department        Department?       @relation(fields: [departmentId], references: [id])
   createdAssets     Asset[]           @relation("AssetCreatedBy")
-  assignments       AssetAssignment[] @relation("AssignedUser")
+  issuedAssignments   AssetAssignment[] @relation("AssignmentIssuedBy")
+  returnedAssignments AssetAssignment[] @relation("AssignmentReturnedBy")
   assignedIncidents Incident[]        @relation("IncidentAssignee")
   reportedIncidents Incident[]        @relation("IncidentReporter")
   incidentUpdates   IncidentUpdate[]
@@ -136,9 +160,29 @@ model Department {
   name        String            @unique
   description String?
   users       User[]
-  assignments AssetAssignment[]
+  holders     Holder[]
   createdAt   DateTime          @default(now())
   updatedAt   DateTime          @updatedAt
+}
+
+/// Personne ou collectif (ex. « AGENTS », postes partages du call center) qui detient du materiel.
+model Holder {
+  id             String            @id @default(cuid())
+  type           HolderType        @default(PERSON)
+  fullName       String
+  matricule      String?           @unique
+  process        String?
+  departmentId   String?
+  department     Department?       @relation(fields: [departmentId], references: [id])
+  active         Boolean           @default(true)
+  assignments    AssetAssignment[]
+  stockMovements StockMovement[]   @relation("MovementBeneficiary")
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([fullName])
+  @@index([active])
+  @@index([departmentId])
 }
 
 model Location {
@@ -193,13 +237,14 @@ model Asset {
   workstationCode String?
   processLabel    String?
   assetGroup      String?
+  trackingMode    TrackingMode      @default(SERIALIZED)
   status          AssetStatus       @default(AVAILABLE)
   condition       AssetCondition    @default(GOOD)
   unit            String            @default("unite")
+  /// Unitaire : toujours 1. En vrac : quantite en stock.
   quantityOnHand  Int               @default(1)
+  /// Seuil d'alerte (en vrac uniquement) ; 0 = alerte seulement en rupture.
   minQuantity     Int               @default(0)
-  reorderPoint    Int               @default(1)
-  maxQuantity     Int?
   purchaseDate    DateTime?
   purchaseValue   Decimal?          @db.Decimal(12, 2)
   warrantyUntil   DateTime?
@@ -225,29 +270,37 @@ model Asset {
   @@index([supplierId])
   @@index([status])
   @@index([barcode])
+  @@index([trackingMode])
 }
 
 model AssetAssignment {
-  id           String           @id @default(cuid())
-  assetId      String
-  asset        Asset            @relation(fields: [assetId], references: [id])
-  assignedToId String?
-  assignedTo   User?            @relation("AssignedUser", fields: [assignedToId], references: [id])
-  departmentId String?
-  department   Department?      @relation(fields: [departmentId], references: [id])
-  assignedAt         DateTime         @default(now())
-  expectedReturnAt   DateTime?
-  returnedAt         DateTime?
-  status             AssignmentStatus @default(ACTIVE)
-  notes        String?
-  createdAt    DateTime         @default(now())
-  updatedAt    DateTime         @updatedAt
+  id               String           @id @default(cuid())
+  assetId          String
+  asset            Asset            @relation(fields: [assetId], references: [id])
+  holderId         String
+  holder           Holder           @relation(fields: [holderId], references: [id])
+  kind             AssignmentKind   @default(DOTATION)
+  status           AssignmentStatus @default(ACTIVE)
+  assignedAt       DateTime         @default(now())
+  /// Obligatoire pour un pret, absent pour une dotation.
+  expectedReturnAt DateTime?
+  returnedAt       DateTime?
+  returnOutcome    ReturnOutcome?
+  issuedById       String?
+  issuedBy         User?            @relation("AssignmentIssuedBy", fields: [issuedById], references: [id])
+  returnedById     String?
+  returnedBy       User?            @relation("AssignmentReturnedBy", fields: [returnedById], references: [id])
+  notes            String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
 
   @@index([assetId])
-  @@index([assignedToId])
-  @@index([departmentId])
+  @@index([holderId])
   @@index([status])
+  @@index([kind])
   @@index([expectedReturnAt])
+  @@index([issuedById])
+  @@index([returnedById])
 }
 
 model StockMovement {
@@ -255,7 +308,11 @@ model StockMovement {
   assetId        String
   asset          Asset        @relation(fields: [assetId], references: [id])
   type           MovementType
+  /// Quantite deplacee ; pour un ajustement, ecart signe (ex. -2).
   quantity       Int          @default(1)
+  /// Beneficiaire d'une sortie d'article en vrac (facultatif).
+  holderId       String?
+  holder         Holder?      @relation("MovementBeneficiary", fields: [holderId], references: [id])
   fromLocationId String?
   fromLocation   Location?    @relation("MovementFromLocation", fields: [fromLocationId], references: [id])
   toLocationId   String?
@@ -271,6 +328,7 @@ model StockMovement {
   @@index([fromLocationId])
   @@index([toLocationId])
   @@index([performedById])
+  @@index([holderId])
 }
 
 model InventorySession {

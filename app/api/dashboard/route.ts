@@ -3,19 +3,11 @@ import { NextResponse } from "next/server";
 import { sortIncidentsByResolutionPriority } from "@/lib/incident-resolution";
 import { KYC_UI } from "@/lib/kyc-excel/terminology";
 import { prisma } from "@/lib/prisma";
-import { getStockLevelStatus } from "@/lib/stock-management";
+import { assetStatusLabels } from "@/lib/stock/asset-state";
+import { buildStockSummary } from "@/lib/stock/stock-summary";
 import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
-
-const assetStatusLabels: Record<string, string> = {
-  AVAILABLE: "Disponible",
-  ASSIGNED: "Assigne",
-  MAINTENANCE: "Maintenance",
-  BROKEN: "Critique",
-  RETIRED: "Reforme",
-  LOST: "Perdu",
-};
 
 const severityLabels: Record<string, string> = {
   LOW: "Basse",
@@ -65,96 +57,69 @@ function calculateIncidentProgress(status: string, updateCount: number) {
 
 const getDashboardData = (
   async () => {
-  const [
-    assetCount,
-    maintenanceCount,
-    openIncidentCount,
-    allAssetsForAlerts,
-    assets,
-    incidents,
-  ] = await Promise.all([
-      prisma.asset.count(),
-      prisma.asset.count({ where: { status: "MAINTENANCE" } }),
-      prisma.incident.count({
-        where: {
-          status: {
-            notIn: ["RESOLVED", "CLOSED"],
-          },
-        },
-      }),
-      prisma.asset.findMany({
-        select: {
-          quantityOnHand: true,
-          reorderPoint: true,
-          minQuantity: true,
-          maxQuantity: true,
-        },
-      }),
-      prisma.asset.findMany({
-        include: {
-          category: true,
-          location: true,
-        },
-        orderBy: {
-          updatedAt: "desc",
-        },
-        take: 8,
-      }),
-      prisma.incident.findMany({
-        include: {
-          asset: true,
-          assignee: true,
-          updates: true,
-        },
-        orderBy: {
-          updatedAt: "desc",
-        },
-        take: 12,
-      }),
-    ]);
+  const now = new Date();
+  const [stockAssets, activeAssignments, openIncidentCount, assets, incidents] = await Promise.all([
+    prisma.asset.findMany({
+      select: { id: true, name: true, trackingMode: true, status: true, quantityOnHand: true, minQuantity: true },
+    }),
+    prisma.assetAssignment.findMany({
+      where: { status: "ACTIVE" },
+      select: { kind: true, status: true, expectedReturnAt: true },
+    }),
+    prisma.incident.count({ where: { status: { notIn: ["RESOLVED", "CLOSED"] } } }),
+    prisma.asset.findMany({
+      include: { category: true, location: true },
+      orderBy: { updatedAt: "desc" },
+      take: 8,
+    }),
+    prisma.incident.findMany({
+      include: { asset: true, assignee: true, updates: true },
+      orderBy: { updatedAt: "desc" },
+      take: 12,
+    }),
+  ]);
 
-  const lowStockCount = allAssetsForAlerts.filter((asset) => {
-    const level = getStockLevelStatus(
-      asset.quantityOnHand,
-      asset.reorderPoint,
-      asset.minQuantity,
-      asset.maxQuantity,
-    );
-    return level === "LOW" || level === "OUT";
-  }).length;
+  const summary = buildStockSummary({ assets: stockAssets, assignments: activeAssignments, now });
+  const format = (value: number) => value.toLocaleString("fr-FR");
 
   return {
     stats: [
       {
-        label: KYC_UI.IT_ASSETS,
-        value: assetCount.toLocaleString("fr-FR"),
-        hint: KYC_UI.TRACKED_ITEMS,
+        label: "Materiel unitaire",
+        value: format(summary.serialized.total),
+        hint: `${format(summary.serialized.assigned)} affectes`,
         icon: "HardDrive",
       },
       {
-        label: KYC_UI.STATUS,
-        value: maintenanceCount.toLocaleString("fr-FR"),
-        hint: KYC_UI.TRACKED_ITEMS,
-        icon: "Wrench",
+        label: "Articles en vrac",
+        value: format(summary.bulk.references),
+        hint: `${format(summary.bulk.pieces)} pieces en stock`,
+        icon: "Package",
       },
       {
         label: KYC_UI.OPEN_INCIDENTS,
-        value: openIncidentCount.toLocaleString("fr-FR"),
+        value: format(openIncidentCount),
         hint: KYC_UI.OPEN_EXCLUDING_CLOSED,
         icon: "AlertTriangle",
       },
       {
         label: "Alertes stock",
-        value: lowStockCount.toLocaleString("fr-FR"),
-        hint: "Rupture ou stock bas",
+        value: format(summary.stockAlerts),
+        hint: "Vrac en rupture ou sous le seuil",
         icon: "ShieldCheck",
+      },
+      {
+        label: "Prets en retard",
+        value: format(summary.overdueLoans),
+        hint: "Echeance de retour depassee",
+        icon: "Clock",
       },
     ],
     inventoryItems: assets.map((asset) => ({
       sku: asset.sku,
       title: asset.name,
       category: asset.category.name,
-      qty: asset.quantityOnHand,
+      qty: asset.trackingMode === "BULK" ? `${asset.quantityOnHand} ${asset.unit}` : "Unitaire",
       location: asset.location?.name ?? "Non localise",
       value: asset.purchaseValue ? `$${asset.purchaseValue.toString()}` : "-",
       updated: asset.updatedAt.toLocaleString("fr-FR", {

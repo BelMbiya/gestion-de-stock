@@ -1,48 +1,32 @@
 import { NextResponse } from "next/server";
 
-import {
-  applyStockMovement,
-  StockMovementError,
-  type ApplyStockMovementInput,
-} from "@/lib/apply-stock-movement";
-import { prisma } from "@/lib/prisma";
-import {
-  normalizeMovementType,
-} from "@/lib/stock-management";
 import { withAuth } from "@/lib/auth/with-auth";
+import { domainErrorResponse } from "@/lib/domain-error";
+import { prisma } from "@/lib/prisma";
+import { recordStockMovement } from "@/lib/stock/movement-service";
 
-export const POST = withAuth(async (request: Request) => {
-  const body = await request.json();
-  const type = normalizeMovementType(body.type);
-  const assetId = String(body.assetId);
-  const quantity = Number(body.quantity ?? 1);
-
-  const asset = await prisma.asset.findUnique({ where: { id: assetId } });
-
-  if (!asset) {
-    return NextResponse.json({ error: "Article introuvable" }, { status: 404 });
-  }
-
-  const input: ApplyStockMovementInput = {
-    assetId,
-    type,
-    quantity,
-    fromLocationId: body.fromLocationId ? String(body.fromLocationId) : null,
-    toLocationId: body.toLocationId ? String(body.toLocationId) : null,
-    reason: body.reason ? String(body.reason) : null,
-    performedById: body.performedById ? String(body.performedById) : null,
-  };
-
+/** Enregistre un mouvement ; l'auteur est toujours l'utilisateur connecte. */
+export const POST = withAuth(async (request: Request, _context, user) => {
   try {
+    const body = await request.json();
+
     const result = await prisma.$transaction((tx) =>
-      applyStockMovement(tx, asset, input),
+      recordStockMovement(tx, {
+        assetId: String(body.assetId ?? ""),
+        input: {
+          type: body.type,
+          quantity: body.quantity,
+          delta: body.delta,
+          reason: body.reason,
+          toLocationId: body.toLocationId,
+          holderId: body.holderId,
+        },
+        actorId: user.id,
+      }),
     );
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {
-    if (error instanceof StockMovementError) {
-      return NextResponse.json({ error: error.message }, { status: 400 });
-    }
-    throw error;
+    return domainErrorResponse(error);
   }
 });

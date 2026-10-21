@@ -1,19 +1,11 @@
 import { NextResponse } from "next/server";
 
 import { KYC_UI } from "@/lib/kyc-excel/terminology";
+import { assetStatusLabels } from "@/lib/stock/asset-state";
 import { prisma } from "@/lib/prisma";
 import { withAuth } from "@/lib/auth/with-auth";
 
 export const dynamic = "force-dynamic";
-
-const assetStatusLabels: Record<string, string> = {
-  AVAILABLE: "Disponible",
-  ASSIGNED: "Assigne",
-  MAINTENANCE: "Maintenance",
-  BROKEN: "Critique",
-  RETIRED: "Reforme",
-  LOST: "Perdu",
-};
 
 const incidentStatusLabels: Record<string, string> = {
   IDENTIFIED: "Identification",
@@ -61,13 +53,8 @@ const getReportsData = (
       prisma.asset.findMany({
         include: {
           assignments: {
-            include: {
-              assignedTo: true,
-              department: true,
-            },
-            orderBy: {
-              assignedAt: "desc",
-            },
+            where: { status: "ACTIVE" },
+            include: { holder: true },
             take: 1,
           },
           category: true,
@@ -76,7 +63,6 @@ const getReportsData = (
         orderBy: {
           updatedAt: "desc",
         },
-        take: 250,
       }),
       prisma.incident.findMany({
         include: {
@@ -109,8 +95,7 @@ const getReportsData = (
       prisma.assetAssignment.findMany({
         include: {
           asset: true,
-          assignedTo: true,
-          department: true,
+          holder: { include: { department: true } },
         },
         orderBy: {
           assignedAt: "desc",
@@ -170,10 +155,7 @@ const getReportsData = (
           name: asset.name,
           category: asset.category.name,
           location: asset.location?.name ?? "Non localise",
-          assignedTo:
-            assignment?.assignedTo?.name ??
-            assignment?.department?.name ??
-            "Non assigne",
+          assignedTo: assignment?.holder.fullName ?? "En stock",
           status: assetStatusLabels[asset.status] ?? asset.status,
           value: asset.purchaseValue ? asset.purchaseValue.toString() : "0",
           updatedAt: asset.updatedAt.toLocaleString("fr-FR", {
@@ -208,12 +190,9 @@ const getReportsData = (
         }),
       })),
       assignments: assignments.map((assignment) => ({
-        agent:
-          assignment.assignedTo?.name ??
-          assignment.assignedTo?.email ??
-          "Non assigne",
+        agent: assignment.holder.fullName,
         asset: assignment.asset.name,
-        department: assignment.department?.name ?? "Non renseigne",
+        department: assignment.holder.department?.name ?? assignment.holder.process ?? "Non renseigne",
         notes: assignment.notes ?? "-",
         remiseAt: assignment.assignedAt.toLocaleDateString("fr-FR", {
           dateStyle: "medium",

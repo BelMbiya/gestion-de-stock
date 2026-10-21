@@ -27,7 +27,8 @@ const getTechniciansData = (
         include: {
           department: true,
           assignedIncidents: true,
-          assignments: true,
+          // Remises de materiel faites par ce technicien et toujours en cours.
+          issuedAssignments: { where: { status: "ACTIVE" }, select: { id: true } },
         },
         orderBy: {
           name: "asc",
@@ -43,9 +44,7 @@ const getTechniciansData = (
     return {
       departments,
       technicians: technicians.map((technician) => ({
-        activeAssignments: technician.assignments.filter(
-          (assignment) => assignment.status === "ACTIVE",
-        ).length,
+        activeAssignments: technician.issuedAssignments.length,
         activeIncidents: technician.assignedIncidents.filter(
           (incident) => !["RESOLVED", "CLOSED"].includes(incident.status),
         ).length,

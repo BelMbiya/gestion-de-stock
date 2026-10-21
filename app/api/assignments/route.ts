@@ -1,234 +1,131 @@
 import { NextResponse } from "next/server";
 
 import {
-  AssignmentError,
-  assertAssetAssignable,
-  createAssignmentAudit,
-  syncAssignmentSideEffects,
-  validateAssignmentPayload,
-} from "@/lib/apply-assignment";
-import {
   getAssignmentReturnAlert,
   getAssignmentReturnAlertLabel,
   getDaysUntilDate,
 } from "@/lib/assignment-alerts";
-import { getStockLevelStatus } from "@/lib/stock-management";
+import { assignmentStatusLabels } from "@/lib/assignment-management";
 import {
-  assignmentStatusLabels,
-  normalizeAssignmentStatus,
-} from "@/lib/assignment-management";
-import { kycAssetListSelect } from "@/lib/kyc-excel/asset-select";
-import { prisma } from "@/lib/prisma";
+  assignAsset,
+  assignmentKindLabels,
+  returnOutcomeLabels,
+} from "@/lib/assignments/assignment-service";
 import { withAuth } from "@/lib/auth/with-auth";
+import { domainErrorResponse } from "@/lib/domain-error";
+import type { AssignmentKind } from "@/lib/generated/prisma/enums";
+import { holderTypeLabels } from "@/lib/holders/holder-names";
+import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-function parseDate(value: unknown) {
-  return value ? new Date(String(value)) : null;
-}
-
-function formatDate(value: Date | null) {
-  return value
-    ? value.toLocaleDateString("fr-FR", {
-        dateStyle: "medium",
-      })
-    : "-";
-}
-
-function formatDateInput(value: Date | null) {
-  return value ? value.toISOString().slice(0, 10) : "";
-}
-
-const getAssignmentsData = (
-  async () => {
-    const [assignments, assets, users, departments] = await Promise.all([
-      prisma.assetAssignment.findMany({
-        include: {
-          asset: {
-            include: {
-              category: true,
-              location: true,
-            },
-          },
-          assignedTo: true,
-          department: true,
-        },
-        orderBy: {
-          assignedAt: "desc",
-        },
-      }),
-      prisma.asset.findMany({
-        orderBy: { name: "asc" },
-        select: {
-          ...kycAssetListSelect,
-          status: true,
-          quantityOnHand: true,
-          reorderPoint: true,
-          minQuantity: true,
-          maxQuantity: true,
-        },
-      }),
-      prisma.user.findMany({
-        orderBy: { name: "asc" },
-      }),
-      prisma.department.findMany({
-        orderBy: { name: "asc" },
-      }),
-    ]);
-
-    return {
-      assets: assets.map((asset) => {
-        const stockLevel = getStockLevelStatus(
-          asset.quantityOnHand,
-          asset.reorderPoint,
-          asset.minQuantity,
-          asset.maxQuantity,
-        );
-        const assignable =
-          stockLevel !== "OUT" &&
-          asset.quantityOnHand > 0 &&
-          (asset.status === "AVAILABLE" || asset.status === "ASSIGNED");
-
-        return {
-          assignable,
-          id: asset.id,
-          model: asset.model,
-          name: asset.name,
-          serialNumber: asset.serialNumber,
-          sku: asset.sku,
-          stockLevel,
-        };
-      }),
-      departments,
-      users: users.map((user) => ({
-        email: user.email,
-        id: user.id,
-        name: user.name ?? user.email,
-      })),
-      assignments: assignments.map((assignment) => {
-        const returnAlert = getAssignmentReturnAlert(
-          assignment.expectedReturnAt,
-          assignment.status,
-        );
-
-        return {
-          agent:
-            assignment.assignedTo?.name ??
-            assignment.assignedTo?.email ??
-            "Non assigne",
-          asset: assignment.asset.name,
-          assetId: assignment.assetId,
-          category: assignment.asset.category.name,
-          department: assignment.department?.name ?? "Non renseigne",
-          departmentId: assignment.departmentId,
-          id: assignment.id,
-          location: assignment.asset.location?.name ?? "Non localise",
-          notes: assignment.notes ?? "-",
-          remiseAtInput: formatDateInput(assignment.assignedAt),
-          remiseAt: formatDate(assignment.assignedAt),
-          expectedReturnAtInput: formatDateInput(assignment.expectedReturnAt),
-          expectedReturnAt: formatDate(assignment.expectedReturnAt),
-          returnedAtInput: formatDateInput(assignment.returnedAt),
-          returnedAt: formatDate(assignment.returnedAt),
-          daysUntilReturn: assignment.expectedReturnAt
-            ? getDaysUntilDate(assignment.expectedReturnAt)
-            : null,
-          returnAlert,
-          returnAlertLabel: getAssignmentReturnAlertLabel(returnAlert),
-          status: assignmentStatusLabels[assignment.status] ?? assignment.status,
-          statusCode: assignment.status,
-          userId: assignment.assignedToId,
-        };
-      }),
-    };
-  });
+const formatDate = (value: Date | null) =>
+  value ? value.toLocaleDateString("fr-FR", { dateStyle: "medium" }) : "-";
+const formatDateInput = (value: Date | null) => (value ? value.toISOString().slice(0, 10) : "");
 
 export const GET = withAuth(async () => {
-  return NextResponse.json(await getAssignmentsData());
+  const [assignments, assets, holders] = await Promise.all([
+    prisma.assetAssignment.findMany({
+      include: {
+        asset: { include: { category: true, location: true } },
+        holder: { include: { department: true } },
+        issuedBy: true,
+      },
+      orderBy: { assignedAt: "desc" },
+    }),
+    prisma.asset.findMany({
+      where: { trackingMode: "SERIALIZED" },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        sku: true,
+        name: true,
+        model: true,
+        serialNumber: true,
+        status: true,
+        _count: { select: { assignments: { where: { status: "ACTIVE" } } } },
+      },
+    }),
+    prisma.holder.findMany({
+      where: { active: true },
+      include: { department: true },
+      orderBy: { fullName: "asc" },
+    }),
+  ]);
+
+  return NextResponse.json({
+    assets: assets.map((asset) => ({
+      id: asset.id,
+      sku: asset.sku,
+      name: asset.name,
+      model: asset.model,
+      serialNumber: asset.serialNumber,
+      assignable: asset.status === "AVAILABLE" && asset._count.assignments === 0,
+    })),
+    holders: holders.map((holder) => ({
+      id: holder.id,
+      fullName: holder.fullName,
+      type: holder.type,
+      typeLabel: holderTypeLabels[holder.type],
+      process: holder.process,
+      department: holder.department?.name ?? null,
+    })),
+    assignments: assignments.map((assignment) => {
+      const returnAlert = getAssignmentReturnAlert(assignment.expectedReturnAt, assignment.status);
+      return {
+        id: assignment.id,
+        assetId: assignment.assetId,
+        asset: assignment.asset.name,
+        sku: assignment.asset.sku,
+        serialNumber: assignment.asset.serialNumber,
+        category: assignment.asset.category.name,
+        location: assignment.asset.location?.name ?? "Non localise",
+        holderId: assignment.holderId,
+        holder: assignment.holder.fullName,
+        holderType: assignment.holder.type,
+        holderDetail:
+          [assignment.holder.department?.name, assignment.holder.process].filter(Boolean).join(" · ") ||
+          holderTypeLabels[assignment.holder.type],
+        kind: assignment.kind,
+        kindLabel: assignmentKindLabels[assignment.kind],
+        notes: assignment.notes ?? "-",
+        remiseAt: formatDate(assignment.assignedAt),
+        remiseAtInput: formatDateInput(assignment.assignedAt),
+        expectedReturnAt: formatDate(assignment.expectedReturnAt),
+        expectedReturnAtInput: formatDateInput(assignment.expectedReturnAt),
+        returnedAt: formatDate(assignment.returnedAt),
+        daysUntilReturn: assignment.expectedReturnAt ? getDaysUntilDate(assignment.expectedReturnAt) : null,
+        returnAlert,
+        returnAlertLabel: getAssignmentReturnAlertLabel(returnAlert),
+        returnOutcome: assignment.returnOutcome ? returnOutcomeLabels[assignment.returnOutcome] : null,
+        issuedBy: assignment.issuedBy?.name ?? assignment.issuedBy?.email ?? "Import",
+        status: assignmentStatusLabels[assignment.status] ?? assignment.status,
+        statusCode: assignment.status,
+      };
+    }),
+  });
 });
 
-function assignmentErrorResponse(error: unknown) {
-  if (error instanceof AssignmentError) {
-    return NextResponse.json({ error: error.message }, { status: 400 });
-  }
+const parseDate = (value: unknown) => (value ? new Date(String(value)) : null);
 
-  console.error("[assignments]", error);
-  const message =
-    error instanceof Error ? error.message : "Erreur serveur lors de l'affectation";
-  return NextResponse.json({ error: message }, { status: 500 });
-}
-
-export const POST = withAuth(async (request: Request) => {
-  const body = await request.json();
-  const status = normalizeAssignmentStatus(body.status);
-  const assetId = String(body.assetId);
-
-  const validationError = validateAssignmentPayload(body);
-  if (validationError) {
-    return NextResponse.json({ error: validationError }, { status: 400 });
-  }
-
-  if (status === "RETURNED") {
-    return NextResponse.json(
-      {
-        error:
-          "Impossible de creer directement une affectation retournee. Allouez d'abord le materiel.",
-      },
-      { status: 400 },
-    );
-  }
-
+/** Remet un materiel unitaire a un detenteur (dotation ou pret). */
+export const POST = withAuth(async (request: Request, _context, user) => {
   try {
-    const result = await prisma.$transaction(async (tx) => {
-      if (status === "ACTIVE" || status === "TRANSFERRED") {
-        await assertAssetAssignable(tx, assetId);
-      }
+    const body = await request.json();
 
-      const created = await tx.assetAssignment.create({
-        data: {
-          assetId,
-          assignedAt: parseDate(body.assignedAt) ?? new Date(),
-          expectedReturnAt: parseDate(body.expectedReturnAt),
-          assignedToId: body.assignedToId ? String(body.assignedToId) : null,
-          departmentId: body.departmentId ? String(body.departmentId) : null,
-          notes: body.notes ? String(body.notes) : null,
-          returnedAt: null,
-          status,
-        },
-      });
-
-      await syncAssignmentSideEffects(
-        tx,
-        assetId,
-        null,
-        status,
-        `Affectation materiel (${status})`,
-      );
-
-      await createAssignmentAudit(
-        tx,
-        "CREATE",
-        created.id,
-        assetId,
-        `Nouvelle affectation ${status}`,
-      );
-
-      const asset = await tx.asset.findUnique({
-        where: { id: assetId },
-        select: { quantityOnHand: true },
-      });
-
-      return { assignment: created, quantityOnHand: asset?.quantityOnHand ?? null };
-    });
-
-    return NextResponse.json(
-      {
-        assignment: result.assignment,
-        quantityOnHand: result.quantityOnHand,
-      },
-      { status: 201 },
+    const assignment = await prisma.$transaction((tx) =>
+      assignAsset(tx, {
+        assetId: String(body.assetId ?? ""),
+        holderId: String(body.holderId ?? ""),
+        kind: body.kind as AssignmentKind,
+        expectedReturnAt: parseDate(body.expectedReturnAt),
+        notes: body.notes,
+        actorId: user.id,
+      }),
     );
+
+    return NextResponse.json({ assignment }, { status: 201 });
   } catch (error) {
-    return assignmentErrorResponse(error);
+    return domainErrorResponse(error);
   }
 });

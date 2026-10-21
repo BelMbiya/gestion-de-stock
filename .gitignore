@@ -48,3 +48,6 @@ next-env.d.ts
 # uploads utilisateur (fichiers generes en local)
 /public/uploads/assets/*
 !/public/uploads/assets/.gitkeep
+
+# sauvegardes de la base (donnees reelles)
+/backups

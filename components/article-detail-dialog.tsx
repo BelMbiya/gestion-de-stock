@@ -39,11 +39,13 @@ export type ArticleDetailData = {
   status: string;
   condition: string;
   unit: string;
+  trackingMode: "SERIALIZED" | "BULK";
+  trackingModeLabel: string;
   quantityOnHand: number;
   minQuantity: number;
-  reorderPoint: number;
-  maxQuantity: number | null;
+  stockStatus: "NONE" | "OK" | "LOW" | "OUT";
   stockStatusLabel: string;
+  /** Detenteur de l'affectation en cours, ou « En stock ». */
   assignedTo: string;
   openIncident: string | null;
   value: string;
@@ -86,17 +88,15 @@ function DetailField({
   );
 }
 
-function StockBadge({ status }: { status: string }) {
-  if (status === "OUT" || status === "Rupture") {
-    return <Badge className="bg-[#ff2f45]/20 text-[#ff9aa5]">{status}</Badge>;
-  }
-  if (status === "LOW" || status === "Stock bas") {
-    return <Badge className="bg-amber-500/20 text-amber-200">{status}</Badge>;
-  }
-  if (status === "OVER" || status === "Surstock") {
-    return <Badge className="bg-purple-500/20 text-purple-200">{status}</Badge>;
-  }
-  return <Badge className="bg-white/10 text-white">{status}</Badge>;
+function StockBadge({ asset }: { asset: ArticleDetailData }) {
+  if (asset.stockStatus === "NONE") return null;
+  const tone =
+    asset.stockStatus === "OUT"
+      ? "bg-[#ff2f45]/20 text-[#ff9aa5]"
+      : asset.stockStatus === "LOW"
+        ? "bg-amber-500/20 text-amber-200"
+        : "bg-white/10 text-white";
+  return <Badge className={tone}>{asset.stockStatusLabel}</Badge>;
 }
 
 type ArticleDetailDialogProps = {
@@ -137,7 +137,10 @@ export function ArticleDetailDialog({
                 {asset.sku}
               </DialogDescription>
               <div className="flex flex-wrap gap-2">
-                <StockBadge status={asset.stockStatusLabel} />
+                <Badge className={asset.trackingMode === "BULK" ? "bg-sky-500/20 text-sky-200" : "bg-white/10"}>
+                  {asset.trackingModeLabel}
+                </Badge>
+                <StockBadge asset={asset} />
                 <Badge className="bg-white/10">{asset.status}</Badge>
                 <Badge className="bg-white/6 text-slate-300">{asset.condition}</Badge>
               </div>
@@ -183,21 +186,18 @@ export function ArticleDetailDialog({
               {KYC_SHEET_LABELS.IN_STORE}
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
-              <DetailField
-                label={KYC_IN_STORE_COLUMNS.NUMBER}
-                value={`${asset.quantityOnHand} ${asset.unit}`}
-              />
-              <DetailField label="Stock minimum" value={String(asset.minQuantity)} />
-              <DetailField
-                label="Seuil reapprovisionnement"
-                value={String(asset.reorderPoint)}
-              />
-              <DetailField
-                label="Stock maximum"
-                value={
-                  asset.maxQuantity != null ? String(asset.maxQuantity) : null
-                }
-              />
+              <DetailField label="Mode de suivi" value={asset.trackingModeLabel} />
+              {asset.trackingMode === "BULK" ? (
+                <>
+                  <DetailField label={KYC_IN_STORE_COLUMNS.NUMBER} value={`${asset.quantityOnHand} ${asset.unit}`} />
+                  <DetailField
+                    label="Seuil d'alerte"
+                    value={asset.minQuantity > 0 ? String(asset.minQuantity) : "Rupture seulement"}
+                  />
+                </>
+              ) : (
+                <DetailField label="Detenteur actuel" value={asset.assignedTo} />
+              )}
             </div>
           </section>
 
@@ -209,10 +209,7 @@ export function ArticleDetailDialog({
               <DetailField label={KYC_UI.LOCATION} value={asset.location} />
               <DetailField label={KYC_IN_STORE_COLUMNS.VENDOR} value={asset.supplier} />
               <DetailField label={KYC_UI.OWNER} value={asset.ownerLabel} />
-              <DetailField
-                label={KYC_UI.DESIGNATED_CUSTODIAN}
-                value={asset.custodianName ?? asset.assignedTo}
-              />
+              <DetailField label="Detenteur dans l'Excel (import)" value={asset.custodianName} />
             </div>
           </section>
 

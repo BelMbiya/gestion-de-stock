@@ -1,4 +1,4 @@
-import { isAssignmentStockMovementReason } from "@/lib/assignment-management";
+import { assignmentKindLabels } from "@/lib/assignments/assignment-service";
 import { prisma } from "@/lib/prisma";
 
 export { resolveHistoryPeriod } from "@/lib/period-range";
@@ -89,13 +89,13 @@ export async function buildMaterialHistory(filters: HistoryFilters = {}) {
     prisma.assetAssignment.findMany({
       where: {
         ...(assetId ? { assetId } : {}),
-        ...(technicianId ? { assignedToId: technicianId } : {}),
+        ...(technicianId ? { issuedById: technicianId } : {}),
         ...(assignedAt ? { assignedAt } : {}),
       },
       include: {
         asset: true,
-        assignedTo: true,
-        department: true,
+        holder: true,
+        issuedBy: true,
       },
       orderBy: { assignedAt: "desc" },
     }),
@@ -125,9 +125,7 @@ export async function buildMaterialHistory(filters: HistoryFilters = {}) {
   ]);
 
   const events = [
-    ...movements
-      .filter((movement) => !isAssignmentStockMovementReason(movement.reason))
-      .map((movement) => ({
+    ...movements.map((movement) => ({
       asset: movement.asset.name,
       assetId: movement.assetId,
       date: formatDate(movement.movedAt),
@@ -143,15 +141,12 @@ export async function buildMaterialHistory(filters: HistoryFilters = {}) {
       asset: assignment.asset.name,
       assetId: assignment.assetId,
       date: formatDate(assignment.assignedAt),
-      detail: assignment.notes ?? "Aucune note",
+      detail: `Detenteur : ${assignment.holder.fullName}${assignment.notes ? ` · ${assignment.notes}` : ""}`,
       id: `assignment-${assignment.id}`,
       metadata: assignment.returnedAt
         ? `Retour le ${formatDate(assignment.returnedAt)}`
-        : assignment.department?.name ?? "Departement non renseigne",
-      owner:
-        assignment.assignedTo?.name ??
-        assignment.assignedTo?.email ??
-        "Agent non renseigne",
+        : assignmentKindLabels[assignment.kind],
+      owner: assignment.issuedBy?.name ?? assignment.issuedBy?.email ?? "Import",
       rawDate: assignment.assignedAt.toISOString(),
       title: assignmentStatusLabels[assignment.status] ?? assignment.status,
       type: eventLabels.assignment,
