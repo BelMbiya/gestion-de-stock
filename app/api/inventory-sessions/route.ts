@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -62,9 +61,6 @@ export async function POST(request: Request) {
     },
     include: { _count: { select: { checks: true } } },
   });
-
-  revalidateTag("stock", "max");
-  revalidateTag("dashboard", "max");
 
   return NextResponse.json({ session }, { status: 201 });
 }

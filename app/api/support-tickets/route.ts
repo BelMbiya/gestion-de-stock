@@ -1,4 +1,3 @@
-import { revalidateTag, unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import {
@@ -49,14 +48,6 @@ function normalizeStatus(status: unknown) {
   return statusValues.find((value) => value === status) ?? "OPEN";
 }
 
-function revalidateSupportViews() {
-  revalidateTag("dashboard", "max");
-  revalidateTag("history", "max");
-  revalidateTag("support-tickets", "max");
-  revalidateTag("notifications", "max");
-  revalidateTag("reports", "max");
-}
-
 async function fetchSupportTicketsPayload(
   where?: ReturnType<typeof buildSupportTicketWhere>,
 ) {
@@ -88,14 +79,8 @@ async function fetchSupportTicketsPayload(
   };
 }
 
-const getSupportTicketsData = unstable_cache(
-  async () => fetchSupportTicketsPayload(),
-  ["support-tickets-data"],
-  {
-    revalidate: 60,
-    tags: ["support-tickets"],
-  },
-);
+const getSupportTicketsData = (
+  async () => fetchSupportTicketsPayload());
 
 export async function GET(request: Request) {
   const filters = parseSupportTicketSearchParams(new URL(request.url).searchParams);
@@ -142,8 +127,6 @@ export async function POST(request: Request) {
         : undefined,
     },
   });
-
-  revalidateSupportViews();
 
   return NextResponse.json({ ticket }, { status: 201 });
 }

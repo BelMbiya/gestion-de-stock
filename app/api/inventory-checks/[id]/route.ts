@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -39,10 +38,6 @@ export async function PATCH(
       data: { locationId: String(body.newLocationId) },
     });
   }
-
-  revalidateTag("stock", "max");
-  revalidateTag("dashboard", "max");
-  revalidateTag("inventory", "max");
 
   return NextResponse.json({ check });
 }

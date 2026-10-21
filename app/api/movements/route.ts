@@ -1,4 +1,3 @@
-import { revalidateTag, unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import {
@@ -10,12 +9,11 @@ import { kycAssetListSelect } from "@/lib/kyc-excel/asset-select";
 import { prisma } from "@/lib/prisma";
 import {
   normalizeMovementType,
-  revalidateStockTags,
 } from "@/lib/stock-management";
 
 export const dynamic = "force-dynamic";
 
-const getMovementsData = unstable_cache(
+const getMovementsData = (
   async () => {
     const [movements, assets, locations] = await Promise.all([
       prisma.stockMovement.findMany({
@@ -54,13 +52,7 @@ const getMovementsData = unstable_cache(
         type: movement.type,
       })),
     };
-  },
-  ["movements-data"],
-  {
-    revalidate: 60,
-    tags: ["movements", "inventory", "dashboard"],
-  },
-);
+  });
 
 export async function GET() {
   return NextResponse.json(await getMovementsData());
@@ -90,10 +82,6 @@ export async function POST(request: Request) {
     const result = await prisma.$transaction((tx) =>
       applyStockMovement(tx, asset, input),
     );
-
-    for (const tag of revalidateStockTags()) {
-      revalidateTag(tag, "max");
-    }
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

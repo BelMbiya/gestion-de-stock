@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -12,12 +11,6 @@ export async function DELETE(
   await prisma.stockMovement.delete({
     where: { id },
   });
-
-  revalidateTag("movements", "max");
-  revalidateTag("history", "max");
-  revalidateTag("inventory", "max");
-  revalidateTag("dashboard", "max");
-  revalidateTag("reports", "max");
 
   return NextResponse.json({ ok: true });
 }

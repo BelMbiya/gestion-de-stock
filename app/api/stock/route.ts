@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import type { IncidentStatus } from "@/lib/generated/prisma/client";
@@ -6,7 +5,6 @@ import { prisma } from "@/lib/prisma";
 import {
   normalizeAssetCondition,
   normalizeAssetStatus,
-  revalidateStockTags,
 } from "@/lib/stock-management";
 import { normalizeImageUrl } from "@/lib/asset-image";
 import { serializeAsset } from "@/lib/stock-serializer";
@@ -30,12 +28,6 @@ const assetInclude = {
     take: 1,
   },
 };
-
-function revalidateAll() {
-  for (const tag of revalidateStockTags()) {
-    revalidateTag(tag, "max");
-  }
-}
 
 export async function GET() {
   try {
@@ -194,8 +186,6 @@ export async function POST(request: Request) {
       },
     });
   }
-
-  revalidateAll();
 
   return NextResponse.json({ asset: serializeAsset(asset) }, { status: 201 });
 }

@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import {
@@ -8,14 +7,8 @@ import {
 
 export const dynamic = "force-dynamic";
 
-const getCachedHistory = unstable_cache(
-  async () => buildMaterialHistory(),
-  ["material-history-data"],
-  {
-    revalidate: 60,
-    tags: ["history", "movements", "assignments", "incidents", "inventory"],
-  },
-);
+const getCachedHistory = (
+  async () => buildMaterialHistory());
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

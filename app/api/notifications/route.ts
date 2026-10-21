@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import {
@@ -10,7 +9,7 @@ import { getStockLevelStatus } from "@/lib/stock-management";
 
 export const dynamic = "force-dynamic";
 
-const getNotifications = unstable_cache(
+const getNotifications = (
   async () => {
     const [openIncidents, assets, activeAssignments, openSupportTickets] =
       await Promise.all([
@@ -110,13 +109,7 @@ const getNotifications = unstable_cache(
         items: assignmentReturnAlerts,
       },
     };
-  },
-  ["notifications-data"],
-  {
-    revalidate: 60,
-    tags: ["notifications", "incidents", "support-tickets", "stock", "inventory", "assignments"],
-  },
-);
+  });
 
 export async function GET() {
   return NextResponse.json(await getNotifications());

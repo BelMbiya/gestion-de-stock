@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -7,13 +6,6 @@ const settingTypes = ["category", "location", "department"] as const;
 
 function normalizeType(type: unknown) {
   return settingTypes.find((value) => value === type);
-}
-
-function revalidateSettingsViews() {
-  revalidateTag("settings", "max");
-  revalidateTag("inventory", "max");
-  revalidateTag("dashboard", "max");
-  revalidateTag("reports", "max");
 }
 
 export async function PATCH(
@@ -46,8 +38,6 @@ export async function PATCH(
             },
           });
 
-  revalidateSettingsViews();
-
   return NextResponse.json({ item });
 }
 
@@ -69,8 +59,6 @@ export async function DELETE(
   } else {
     await prisma.location.delete({ where: { id } });
   }
-
-  revalidateSettingsViews();
 
   return NextResponse.json({ ok: true });
 }

@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import type { IncidentStatus } from "@/lib/generated/prisma/client";
@@ -6,16 +5,9 @@ import { prisma } from "@/lib/prisma";
 import {
   normalizeAssetCondition,
   normalizeAssetStatus,
-  revalidateStockTags,
 } from "@/lib/stock-management";
 import { normalizeImageUrl } from "@/lib/asset-image";
 import { serializeAsset } from "@/lib/stock-serializer";
-
-function revalidateAll() {
-  for (const tag of revalidateStockTags()) {
-    revalidateTag(tag, "max");
-  }
-}
 
 const assetInclude = {
   category: true,
@@ -142,8 +134,6 @@ export async function PATCH(
     });
   });
 
-  revalidateAll();
-
   return NextResponse.json({ asset: serializeAsset(asset) });
 }
 
@@ -154,7 +144,6 @@ export async function DELETE(
   const { id } = await params;
 
   await prisma.asset.delete({ where: { id } });
-  revalidateAll();
 
   return NextResponse.json({ ok: true });
 }

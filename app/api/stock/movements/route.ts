@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import {
@@ -9,14 +8,7 @@ import {
 import { prisma } from "@/lib/prisma";
 import {
   normalizeMovementType,
-  revalidateStockTags,
 } from "@/lib/stock-management";
-
-function revalidateAll() {
-  for (const tag of revalidateStockTags()) {
-    revalidateTag(tag, "max");
-  }
-}
 
 export async function POST(request: Request) {
   const body = await request.json();
@@ -44,8 +36,6 @@ export async function POST(request: Request) {
     const result = await prisma.$transaction((tx) =>
       applyStockMovement(tx, asset, input),
     );
-
-    revalidateAll();
 
     return NextResponse.json(result, { status: 201 });
   } catch (error) {

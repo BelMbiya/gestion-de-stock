@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import {
@@ -10,18 +9,11 @@ import {
 } from "@/lib/apply-assignment";
 import {
   normalizeAssignmentStatus,
-  revalidateAssignmentTags,
 } from "@/lib/assignment-management";
 import { prisma } from "@/lib/prisma";
 
 function parseDate(value: unknown) {
   return value ? new Date(String(value)) : null;
-}
-
-function revalidateAll() {
-  for (const tag of revalidateAssignmentTags()) {
-    revalidateTag(tag, "max");
-  }
 }
 
 function assignmentErrorResponse(error: unknown) {
@@ -149,8 +141,6 @@ export async function PATCH(
       return updated;
     });
 
-    revalidateAll();
-
     return NextResponse.json({ assignment });
   } catch (error) {
     return assignmentErrorResponse(error);
@@ -196,8 +186,6 @@ export async function DELETE(
         "Affectation supprimee",
       );
     });
-
-    revalidateAll();
 
     return NextResponse.json({ ok: true });
   } catch (error) {

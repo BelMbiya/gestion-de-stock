@@ -1,4 +1,3 @@
-import { revalidateTag, unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import {
@@ -83,14 +82,8 @@ async function fetchIncidentsPayload(where?: ReturnType<typeof buildIncidentWher
   };
 }
 
-const getIncidentsData = unstable_cache(
-  async () => fetchIncidentsPayload(),
-  ["incidents-data"],
-  {
-    revalidate: 60,
-    tags: ["incidents"],
-  },
-);
+const getIncidentsData = (
+  async () => fetchIncidentsPayload());
 
 export async function GET(request: Request) {
   const filters = parseIncidentSearchParams(new URL(request.url).searchParams);
@@ -130,13 +123,6 @@ export async function POST(request: Request) {
         : undefined,
     },
   });
-
-  revalidateTag("dashboard", "max");
-  revalidateTag("history", "max");
-  revalidateTag("incidents", "max");
-  revalidateTag("inventory", "max");
-  revalidateTag("notifications", "max");
-  revalidateTag("reports", "max");
 
   return NextResponse.json({ incident }, { status: 201 });
 }

@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { KYC_UI } from "@/lib/kyc-excel/terminology";
@@ -55,7 +54,7 @@ function countBy<T>(items: T[], getKey: (item: T) => string) {
   ).map(([label, value]) => ({ label, value }));
 }
 
-const getReportsData = unstable_cache(
+const getReportsData = (
   async () => {
     const [assets, incidents, movements, assignments, inventoryChecks] = await Promise.all([
       prisma.asset.findMany({
@@ -246,13 +245,7 @@ const getReportsData = unstable_cache(
         location: asset.location?.name ?? "Non localise",
       })),
     };
-  },
-  ["reports-data"],
-  {
-    revalidate: 60,
-    tags: ["reports", "dashboard", "inventory", "incidents", "movements", "assignments"],
-  },
-);
+  });
 
 export async function GET() {
   return NextResponse.json(await getReportsData());

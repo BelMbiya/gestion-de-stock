@@ -3,7 +3,7 @@ import "dotenv/config";
 import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient, UserRole } from "../lib/generated/prisma/client";
 
-import { seedKycInventory } from "../lib/import-kyc-inventory";
+import { SeedRefusedError, seedKycInventory } from "../lib/import-kyc-inventory";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -48,7 +48,8 @@ async function main() {
     },
   });
 
-  const result = await seedKycInventory(prisma, admin.id);
+  const reset = process.argv.includes("--reset");
+  const result = await seedKycInventory(prisma, admin.id, { reset });
   console.log(
     `Seed KYC termine: ${result.created} actifs, ${result.locations} sites, ${result.categories} categories.`,
   );
@@ -60,7 +61,7 @@ main()
     await prisma.$disconnect();
   })
   .catch(async (error) => {
-    console.error(error);
+    console.error(error instanceof SeedRefusedError ? error.message : error);
     await prisma.$disconnect();
     process.exit(1);
   });

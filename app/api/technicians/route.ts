@@ -1,4 +1,3 @@
-import { revalidateTag, unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -15,14 +14,7 @@ function firebaseUidFromEmail(email: string) {
   return `tech-${email.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
 }
 
-function revalidateTechnicianViews() {
-  revalidateTag("technicians", "max");
-  revalidateTag("incidents", "max");
-  revalidateTag("assignments", "max");
-  revalidateTag("dashboard", "max");
-}
-
-const getTechniciansData = unstable_cache(
+const getTechniciansData = (
   async () => {
     const [technicians, departments] = await Promise.all([
       prisma.user.findMany({
@@ -65,13 +57,7 @@ const getTechniciansData = unstable_cache(
         role: technician.role,
       })),
     };
-  },
-  ["technicians-data"],
-  {
-    revalidate: 60,
-    tags: ["technicians", "incidents", "assignments"],
-  },
-);
+  });
 
 export async function GET() {
   return NextResponse.json(await getTechniciansData());
@@ -93,8 +79,6 @@ export async function POST(request: Request) {
       role: normalizeRole(body.role),
     },
   });
-
-  revalidateTechnicianViews();
 
   return NextResponse.json({ technician }, { status: 201 });
 }

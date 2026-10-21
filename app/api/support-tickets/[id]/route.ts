@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -23,14 +22,6 @@ function normalizePriority(priority: unknown) {
 
 function normalizeStatus(status: unknown) {
   return statusValues.find((value) => value === status);
-}
-
-function revalidateSupportViews() {
-  revalidateTag("dashboard", "max");
-  revalidateTag("history", "max");
-  revalidateTag("support-tickets", "max");
-  revalidateTag("notifications", "max");
-  revalidateTag("reports", "max");
 }
 
 export async function PATCH(
@@ -75,8 +66,6 @@ export async function PATCH(
     },
   });
 
-  revalidateSupportViews();
-
   return NextResponse.json({ ticket });
 }
 
@@ -89,8 +78,6 @@ export async function DELETE(
   await prisma.supportTicket.delete({
     where: { id },
   });
-
-  revalidateSupportViews();
 
   return NextResponse.json({ ok: true });
 }

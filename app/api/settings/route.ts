@@ -1,4 +1,3 @@
-import { revalidateTag, unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -11,7 +10,7 @@ function normalizeType(type: unknown) {
   return settingTypes.find((value) => value === type);
 }
 
-const getSettingsData = unstable_cache(
+const getSettingsData = (
   async () => {
     const [categories, departments, locations] = await Promise.all([
       prisma.category.findMany({ orderBy: { name: "asc" } }),
@@ -20,13 +19,7 @@ const getSettingsData = unstable_cache(
     ]);
 
     return { categories, departments, locations };
-  },
-  ["settings-data"],
-  {
-    revalidate: 60,
-    tags: ["settings", "inventory", "dashboard"],
-  },
-);
+  });
 
 export async function GET() {
   return NextResponse.json(await getSettingsData());
@@ -56,11 +49,6 @@ export async function POST(request: Request) {
               code: String(body.code),
             },
           });
-
-  revalidateTag("settings", "max");
-  revalidateTag("inventory", "max");
-  revalidateTag("dashboard", "max");
-  revalidateTag("reports", "max");
 
   return NextResponse.json({ item }, { status: 201 });
 }

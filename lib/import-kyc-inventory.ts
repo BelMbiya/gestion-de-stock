@@ -46,7 +46,39 @@ export function loadKycInventoryFromExcel(baseDir = process.cwd()) {
   return projectSheetsToAssets(parsed);
 }
 
-export async function seedKycInventory(prisma: PrismaClient, adminUserId: string) {
+export class SeedRefusedError extends Error {
+  constructor(assetCount: number) {
+    super(
+      `Seed refuse : la base contient deja ${assetCount} actifs. ` +
+        "Le reimport KYC efface actifs, affectations, mouvements, pannes et journal d'audit. " +
+        "Relancez avec --reset pour confirmer (npm run prisma:seed -- --reset).",
+    );
+    this.name = "SeedRefusedError";
+  }
+}
+
+/** Le reimport est destructif : il n'est autorise que sur une base vide ou avec reset explicite. */
+export async function assertSeedAllowed(
+  prisma: PrismaClient,
+  options: { reset?: boolean } = {},
+) {
+  if (options.reset) {
+    return;
+  }
+
+  const assetCount = await prisma.asset.count();
+  if (assetCount > 0) {
+    throw new SeedRefusedError(assetCount);
+  }
+}
+
+export async function seedKycInventory(
+  prisma: PrismaClient,
+  adminUserId: string,
+  options: { reset?: boolean } = {},
+) {
+  await assertSeedAllowed(prisma, options);
+
   const parsed = parseAllKycSheets(loadKycWorkbookRows());
   const sheetCounts = await persistKycSheetsToDatabase(prisma, parsed);
   const items = projectSheetsToAssets(parsed);

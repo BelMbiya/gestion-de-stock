@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -22,9 +21,6 @@ export async function PATCH(
     },
   });
 
-  revalidateTag("stock", "max");
-  revalidateTag("inventory", "max");
-
   return NextResponse.json({ supplier });
 }
 
@@ -35,8 +31,6 @@ export async function DELETE(
   const { id } = await params;
 
   await prisma.supplier.delete({ where: { id } });
-  revalidateTag("stock", "max");
-  revalidateTag("inventory", "max");
 
   return NextResponse.json({ ok: true });
 }

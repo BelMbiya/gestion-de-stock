@@ -1,4 +1,3 @@
-import { revalidateTag, unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { normalizeImageUrl } from "@/lib/asset-image";
@@ -28,7 +27,7 @@ function normalizeAssetStatus(status: unknown) {
   return assetStatusValues.find((value) => value === status) ?? "AVAILABLE";
 }
 
-const getInventoryData = unstable_cache(
+const getInventoryData = (
   async () => {
   const assets = await prisma.asset.findMany({
     include: {
@@ -106,13 +105,7 @@ const getInventoryData = unstable_cache(
       };
     }),
   };
-  },
-  ["inventory-data"],
-  {
-    revalidate: 60,
-    tags: ["inventory"],
-  },
-);
+  });
 
 export async function GET() {
   return NextResponse.json(await getInventoryData());
@@ -134,11 +127,6 @@ export async function POST(request: Request) {
       locationId: body.locationId ? String(body.locationId) : null,
     },
   });
-
-  revalidateTag("dashboard", "max");
-  revalidateTag("history", "max");
-  revalidateTag("inventory", "max");
-  revalidateTag("reports", "max");
 
   return NextResponse.json({ asset }, { status: 201 });
 }

@@ -1,4 +1,3 @@
-import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { sortIncidentsByResolutionPriority } from "@/lib/incident-resolution";
@@ -63,7 +62,7 @@ function calculateIncidentProgress(status: string, updateCount: number) {
   return base + updateBonus;
 }
 
-const getDashboardData = unstable_cache(
+const getDashboardData = (
   async () => {
   const [
     assetCount,
@@ -179,13 +178,7 @@ const getDashboardData = unstable_cache(
       })),
     ),
   };
-  },
-  ["dashboard-data"],
-  {
-    revalidate: 60,
-    tags: ["dashboard", "inventory", "incidents"],
-  },
-);
+  });
 
 export async function GET() {
   return NextResponse.json(await getDashboardData());

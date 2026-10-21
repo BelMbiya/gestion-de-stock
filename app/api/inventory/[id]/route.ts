@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { normalizeImageUrl } from "@/lib/asset-image";
@@ -15,13 +14,6 @@ const assetStatusValues = [
 
 function normalizeAssetStatus(status: unknown) {
   return assetStatusValues.find((value) => value === status);
-}
-
-function revalidateInventoryViews() {
-  revalidateTag("dashboard", "max");
-  revalidateTag("history", "max");
-  revalidateTag("inventory", "max");
-  revalidateTag("reports", "max");
 }
 
 export async function PATCH(
@@ -58,8 +50,6 @@ export async function PATCH(
     },
   });
 
-  revalidateInventoryViews();
-
   return NextResponse.json({ asset });
 }
 
@@ -72,8 +62,6 @@ export async function DELETE(
   await prisma.asset.delete({
     where: { id },
   });
-
-  revalidateInventoryViews();
 
   return NextResponse.json({ ok: true });
 }

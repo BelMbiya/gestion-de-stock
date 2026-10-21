@@ -70,15 +70,3 @@ export function isAssignmentStockMovementReason(reason: string | null | undefine
     normalized.includes("suppression affectation")
   );
 }
-
-export function revalidateAssignmentTags() {
-  return [
-    "assignments",
-    "dashboard",
-    "history",
-    "inventory",
-    "stock",
-    "reports",
-    "notifications",
-  ] as const;
-}

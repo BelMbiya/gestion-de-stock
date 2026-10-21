@@ -104,15 +104,3 @@ export function computeQuantityAfterMovement(
       return currentQuantity;
   }
 }
-
-export function revalidateStockTags() {
-  return [
-    "dashboard",
-    "history",
-    "inventory",
-    "movements",
-    "reports",
-    "notifications",
-    "stock",
-  ] as const;
-}

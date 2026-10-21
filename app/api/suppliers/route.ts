@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -38,9 +37,6 @@ export async function POST(request: Request) {
       notes: body.notes ? String(body.notes) : null,
     },
   });
-
-  revalidateTag("stock", "max");
-  revalidateTag("inventory", "max");
 
   return NextResponse.json({ supplier }, { status: 201 });
 }

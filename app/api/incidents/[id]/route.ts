@@ -1,4 +1,3 @@
-import { revalidateTag } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { prisma } from "@/lib/prisma";
@@ -19,15 +18,6 @@ function normalizeSeverity(severity: unknown) {
 
 function normalizeStatus(status: unknown) {
   return statusValues.find((value) => value === status);
-}
-
-function revalidateIncidentViews() {
-  revalidateTag("dashboard", "max");
-  revalidateTag("history", "max");
-  revalidateTag("incidents", "max");
-  revalidateTag("inventory", "max");
-  revalidateTag("notifications", "max");
-  revalidateTag("reports", "max");
 }
 
 export async function PATCH(
@@ -67,8 +57,6 @@ export async function PATCH(
     },
   });
 
-  revalidateIncidentViews();
-
   return NextResponse.json({ incident });
 }
 
@@ -81,8 +69,6 @@ export async function DELETE(
   await prisma.incident.delete({
     where: { id },
   });
-
-  revalidateIncidentViews();
 
   return NextResponse.json({ ok: true });
 }

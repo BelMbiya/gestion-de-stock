@@ -1,4 +1,3 @@
-import { revalidateTag, unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import {
@@ -17,7 +16,6 @@ import { getStockLevelStatus } from "@/lib/stock-management";
 import {
   assignmentStatusLabels,
   normalizeAssignmentStatus,
-  revalidateAssignmentTags,
 } from "@/lib/assignment-management";
 import { kycAssetListSelect } from "@/lib/kyc-excel/asset-select";
 import { prisma } from "@/lib/prisma";
@@ -40,13 +38,7 @@ function formatDateInput(value: Date | null) {
   return value ? value.toISOString().slice(0, 10) : "";
 }
 
-function revalidateAll() {
-  for (const tag of revalidateAssignmentTags()) {
-    revalidateTag(tag, "max");
-  }
-}
-
-const getAssignmentsData = unstable_cache(
+const getAssignmentsData = (
   async () => {
     const [assignments, assets, users, departments] = await Promise.all([
       prisma.assetAssignment.findMany({
@@ -148,13 +140,7 @@ const getAssignmentsData = unstable_cache(
         };
       }),
     };
-  },
-  ["assignments-data"],
-  {
-    revalidate: 60,
-    tags: ["assignments", "inventory", "dashboard", "stock"],
-  },
-);
+  });
 
 export async function GET() {
   return NextResponse.json(await getAssignmentsData());
@@ -233,8 +219,6 @@ export async function POST(request: Request) {
 
       return { assignment: created, quantityOnHand: asset?.quantityOnHand ?? null };
     });
-
-    revalidateAll();
 
     return NextResponse.json(
       {
