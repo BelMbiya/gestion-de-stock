@@ -1,6 +1,7 @@
 import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
+import { KYC_UI } from "@/lib/kyc-excel/terminology";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -137,28 +138,28 @@ const getReportsData = unstable_cache(
       }),
       summary: [
         {
-          label: "Actifs IT",
+          label: KYC_UI.IT_ASSETS,
           value: assets.length,
-          hint: "Materiels suivis",
+          hint: KYC_UI.TRACKED_ITEMS,
         },
         {
-          label: "Valeur estimee",
+          label: KYC_UI.ESTIMATED_VALUE,
           value: totalValue.toLocaleString("fr-FR", {
             maximumFractionDigits: 0,
             style: "currency",
             currency: "USD",
           }),
-          hint: "Base inventaire",
+          hint: KYC_UI.INVENTORY_BASE,
         },
         {
-          label: "Pannes ouvertes",
+          label: KYC_UI.OPEN_INCIDENTS,
           value: activeIncidents.length,
-          hint: "Hors resolues/cloturees",
+          hint: KYC_UI.OPEN_EXCLUDING_CLOSED,
         },
         {
-          label: "Controles inventaire",
+          label: KYC_UI.INVENTORY_CHECKS,
           value: inventoryChecks,
-          hint: "Checks historises",
+          hint: KYC_UI.LOGGED_CHECKS,
         },
       ],
       assets: assets.map((asset) => {

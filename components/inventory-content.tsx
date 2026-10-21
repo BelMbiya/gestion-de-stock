@@ -1,10 +1,9 @@
 "use client";
 
-import { AlertTriangle, ChevronRight, Database, MapPin, Plus, Search } from "lucide-react";
+import { Database, MapPin, Plus, Search } from "lucide-react";
 
 import { AssetImageThumb } from "@/components/asset-image-thumb";
 import { AssetImageUpload } from "@/components/asset-image-upload";
-import { CopyReferenceButton } from "@/components/copy-reference-button";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import Link from "next/link";
 import { FormEvent, useEffect, useRef, useState } from "react";
@@ -14,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import {
   Card,
   CardContent,
-  CardDescription,
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
@@ -35,16 +33,28 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { KYC_IN_STORE_COLUMNS, KYC_PROCO_COLUMNS, KYC_SHEET_LABELS, KYC_UI, KYC_WORKSTATION_COLUMNS } from "@/lib/kyc-excel/terminology";
+import { ui } from "@/lib/ui-styles";
+
 type InventoryAsset = {
   id: string;
   sku: string;
   serialNumber: string | null;
   name: string;
+  model: string | null;
+  brand: string | null;
   imageUrl: string | null;
   category: string;
   location: string;
   status: string;
   assignedTo: string;
+  custodianName: string | null;
+  ownerLabel: string | null;
+  workstationCode: string | null;
+  processLabel: string | null;
+  assetGroup: string | null;
+  systemOs: string | null;
+  storageRam: string | null;
   openIncident: string | null;
   value: string;
   updatedAt: string;
@@ -87,36 +97,16 @@ const statusToFormValue: Record<string, string> = {
 };
 
 function StatusBadge({ status }: { status: string }) {
-  if (status === "Critique") {
-    return (
-      <Badge className="bg-[#ff2f45]/20 text-[#ff7a88] hover:bg-[#ff2f45]/20">
-        {status}
-      </Badge>
-    );
-  }
+  const tone =
+    status === "Critique" || status === "Perdu"
+      ? "bg-red-900/40 text-red-200"
+      : status === "Maintenance" || status === "Assigne"
+        ? "bg-slate-700 text-slate-200"
+        : "bg-slate-800 text-slate-300";
 
-  if (status === "Maintenance") {
-    return (
-      <Badge className="bg-[#6fb6ff]/20 text-[#9fd0ff] hover:bg-[#6fb6ff]/20">
-        {status}
-      </Badge>
-    );
-  }
-
-  if (status === "Assigne") {
-    return (
-      <Badge className="bg-[#6fb6ff]/20 text-[#9fd0ff] hover:bg-[#6fb6ff]/20">
-        {status}
-      </Badge>
-    );
-  }
-
-  return <Badge className="bg-white/10 text-white">{status}</Badge>;
+  return <Badge className={tone}>{status}</Badge>;
 }
 
-function formatAssetValue(value: string) {
-  return value === "-" ? "Non renseignee" : value;
-}
 
 export function InventoryContent() {
   const [assets, setAssets] = useState<InventoryAsset[]>([]);
@@ -140,13 +130,20 @@ export function InventoryContent() {
 
     return [
       asset.assignedTo,
+      asset.assetGroup ?? "",
+      asset.brand ?? "",
       asset.category,
+      asset.custodianName ?? "",
       asset.location,
+      asset.model ?? "",
       asset.name,
       asset.openIncident ?? "",
+      asset.processLabel ?? "",
       asset.serialNumber ?? "",
       asset.sku,
       asset.status,
+      asset.systemOs ?? "",
+      asset.workstationCode ?? "",
     ]
       .join(" ")
       .toLowerCase()
@@ -222,72 +219,51 @@ export function InventoryContent() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-5 text-white">
-        <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/30 md:flex-row md:items-center md:justify-between">
+    <section className={ui.page}>
+        <header className={`${ui.header} md:flex md:items-center md:justify-between`}>
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.35em] text-[#6fb6ff]">
-              Inventaire
-            </p>
-            <h1 className="mt-2 text-3xl font-black">Gestion du materiel IT</h1>
-            <p className="mt-2 max-w-2xl text-sm text-slate-300">
-              Consultez les actifs, leur localisation, leur affectation et les
-              pannes ouvertes directement depuis la base de donnees.
+            <p className={ui.eyebrow}>{KYC_SHEET_LABELS.PROCO_KYC_CALL_IT_EQUIPEMENT}</p>
+            <h1 className={ui.title}>{KYC_SHEET_LABELS.PROCO_KYC_CALL_IT_EQUIPEMENT}</h1>
+            <p className={ui.subtitle}>
+              {isLoading ? "Chargement..." : `${assets.length} actif(s) en base`}
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="mt-3 flex flex-wrap gap-2 md:mt-0">
             <ExportPdfButton
               disabled={isLoading}
-              filename="inventaire-materiel"
+              filename="inventaire-kyc"
               sections={[
                 {
                   columns: [
-                    "SKU",
-                    "Materiel",
+                    KYC_PROCO_COLUMNS.NO,
+                    KYC_WORKSTATION_COLUMNS.WORK_STATION,
+                    KYC_PROCO_COLUMNS.DESCRIPTION,
+                    KYC_PROCO_COLUMNS.SERIAL_NUMBER,
                     "Categorie",
-                    "Localisation",
-                    "Affectation",
-                    "Valeur",
-                    "Statut",
-                    "Panne",
+                    KYC_PROCO_COLUMNS.LOCATION,
+                    KYC_PROCO_COLUMNS.DESIGNATED_CUSTODIAN,
+                    KYC_PROCO_COLUMNS.STATUS,
                   ],
                   rows: filteredAssets.map((asset) => [
                     asset.sku,
+                    asset.workstationCode ?? "-",
                     asset.name,
+                    asset.serialNumber ?? "-",
                     asset.category,
                     asset.location,
-                    asset.assignedTo,
-                    formatAssetValue(asset.value),
+                    asset.custodianName ?? asset.assignedTo,
                     asset.status,
-                    asset.openIncident ?? "Aucune panne ouverte",
                   ]),
                 },
               ]}
-              subtitle={`PROCO & Cie - ${filteredAssets.length} materiel(s) exporte(s)`}
-              title="Inventaire materiel IT"
+              subtitle={`${filteredAssets.length} ligne(s)`}
+              title="Inventaire KYC"
             />
-            <Button
-              className="h-10 rounded-full bg-white/8 px-4 font-bold text-white hover:bg-white/12"
-              onClick={() => setIsActionOpen(true)}
-              type="button"
-            >
-              Action
-              <ChevronRight className="size-4" />
+            <Button className={ui.btnSecondary} onClick={() => setIsActionOpen(true)} type="button">
+              Actions
             </Button>
             <Button
-              className="h-10 rounded-full bg-white/8 px-4 font-bold text-white hover:bg-white/12"
-              onClick={() =>
-                listRef.current?.scrollIntoView({
-                  behavior: "smooth",
-                  block: "start",
-                })
-              }
-              type="button"
-            >
-              Liste materiel
-              <ChevronRight className="size-4" />
-            </Button>
-            <Button
-              className="h-10 rounded-full bg-[#ff2f45] px-4 font-bold text-white hover:bg-[#ff4b5e]"
+              className={ui.btnPrimary}
               onClick={() => {
                 setEditingAssetId(null);
                 setForm(emptyForm);
@@ -296,7 +272,7 @@ export function InventoryContent() {
               type="button"
             >
               <Plus className="size-4" />
-              Add New
+              Ajouter
             </Button>
           </div>
         </header>
@@ -310,26 +286,14 @@ export function InventoryContent() {
               </DialogDescription>
             </DialogHeader>
             <div className="grid gap-3">
-              <Link
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-bold text-white hover:bg-white/10"
-                href="/affectations"
-              >
-                Allouer un materiel a un agent
-                <ChevronRight className="size-4 text-[#6fb6ff]" />
+              <Link className="flex items-center justify-between rounded border border-white/10 px-3 py-2 text-sm hover:bg-slate-800" href="/affectations">
+                Allouer {KYC_IN_STORE_COLUMNS.ITEM}
               </Link>
-              <Link
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-bold text-white hover:bg-white/10"
-                href="/mouvements"
-              >
-                Enregistrer un mouvement de stock
-                <ChevronRight className="size-4 text-[#6fb6ff]" />
+              <Link className="flex items-center justify-between rounded border border-white/10 px-3 py-2 text-sm hover:bg-slate-800" href="/mouvements">
+                Mouvement de stock
               </Link>
-              <Link
-                className="flex items-center justify-between rounded-2xl border border-white/10 bg-white/6 px-4 py-3 text-sm font-bold text-white hover:bg-white/10"
-                href="/pannes"
-              >
-                Declarer une panne liee au materiel
-                <ChevronRight className="size-4 text-[#6fb6ff]" />
+              <Link className="flex items-center justify-between rounded border border-white/10 px-3 py-2 text-sm hover:bg-slate-800" href="/pannes">
+                Declarer une panne
               </Link>
             </div>
           </DialogContent>
@@ -339,7 +303,9 @@ export function InventoryContent() {
           <DialogContent className="w-[min(calc(100vw-2rem),52rem)] max-w-none border-white/10 bg-[#11183b] p-6 text-white sm:max-w-none">
             <DialogHeader>
               <DialogTitle>
-                {editingAssetId ? "Modifier le materiel" : "Ajouter un materiel"}
+                {editingAssetId
+                  ? `Modifier ${KYC_IN_STORE_COLUMNS.ITEM}`
+                  : `Ajouter ${KYC_IN_STORE_COLUMNS.ITEM}`}
               </DialogTitle>
               <DialogDescription className="text-slate-400">
                 Renseignez le prix d&apos;achat et le statut operationnel du
@@ -356,7 +322,7 @@ export function InventoryContent() {
                 onChange={(event) =>
                   setForm((value) => ({ ...value, sku: event.target.value }))
                 }
-                placeholder="SKU"
+                placeholder={KYC_PROCO_COLUMNS.NO}
                 required
                 value={form.sku}
               />
@@ -365,7 +331,7 @@ export function InventoryContent() {
                 onChange={(event) =>
                   setForm((value) => ({ ...value, name: event.target.value }))
                 }
-                placeholder="Nom du materiel"
+                placeholder={KYC_PROCO_COLUMNS.DESCRIPTION}
                 required
                 value={form.name}
               />
@@ -377,12 +343,12 @@ export function InventoryContent() {
                     serialNumber: event.target.value,
                   }))
                 }
-                placeholder="Numero de serie"
+                placeholder={KYC_PROCO_COLUMNS.SERIAL_NUMBER}
                 value={form.serialNumber}
               />
               <div className="md:col-span-2">
                 <AssetImageUpload
-                  alt={form.name || "Photo materiel"}
+                  alt={form.name || KYC_UI.PHOTO}
                   imageUrl={form.imageUrl || null}
                   onImageUrlChange={(url) =>
                     setForm((value) => ({ ...value, imageUrl: url ?? "" }))
@@ -417,7 +383,7 @@ export function InventoryContent() {
                 }
                 value={form.locationId}
               >
-                <option value="">Localisation</option>
+                <option value="">{KYC_PROCO_COLUMNS.LOCATION}</option>
                 {locations.map((location) => (
                   <option key={location.id} value={location.id}>
                     {location.name}
@@ -444,9 +410,9 @@ export function InventoryContent() {
                 />
               </label>
               <label className="flex flex-col gap-2 text-sm text-slate-300">
-                Statut du materiel
+                Statut ({KYC_PROCO_COLUMNS.STATUS})
                 <select
-                  aria-label="Statut du materiel"
+                  aria-label={KYC_PROCO_COLUMNS.STATUS}
                   className="h-11 rounded-lg border border-white/10 bg-[#11183b] px-3 text-sm text-white"
                   onChange={(event) =>
                     setForm((value) => ({ ...value, status: event.target.value }))
@@ -500,31 +466,23 @@ export function InventoryContent() {
           </DialogContent>
         </Dialog>
 
-        <Card
-          className="min-h-0 flex-1 border-white/10 bg-[#11183b]/95 text-white ring-0"
-          ref={listRef}
-        >
-          <CardHeader className="gap-4 md:grid md:grid-cols-[1fr_20rem] md:items-center">
-            <div>
-              <CardTitle className="flex items-center gap-2 text-xl font-black">
-                <Database className="size-5 text-[#6fb6ff]" />
-                Actifs en base
-              </CardTitle>
-              <CardDescription className="text-slate-400">
-                {isLoading ? "Chargement..." : `${assets.length} materiel(s)`}
-              </CardDescription>
-            </div>
+        <Card className={`${ui.panel} ${ui.tablePanel}`}>
+          <CardHeader className={`${ui.panelHeader} gap-3 md:grid md:grid-cols-[1fr_18rem]`}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Database className="size-4" />
+              Liste des actifs
+            </CardTitle>
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
               <Input
-                className="h-10 border-white/10 bg-white/6 pl-9 text-white"
+                className={`${ui.input} pl-9`}
                 onChange={(event) => setSearchQuery(event.target.value)}
-                placeholder="Rechercher par SKU, materiel, categorie, localisation..."
+                placeholder={`${KYC_PROCO_COLUMNS.NO}, ${KYC_PROCO_COLUMNS.SERIAL_NUMBER}, ${KYC_PROCO_COLUMNS.DESIGNATED_CUSTODIAN}, ${KYC_PROCO_COLUMNS.LOCATION}…`}
                 value={searchQuery}
               />
             </div>
           </CardHeader>
-          <CardContent>
+          <CardContent className={ui.tablePanelBody}>
             {error ? (
               <p className="rounded-xl bg-[#ff2f45]/15 p-4 text-sm text-[#ff91a0]">
                 {error}
@@ -536,32 +494,24 @@ export function InventoryContent() {
               </p>
             ) : null}
             {!error && !isLoading ? (
+              <div className={ui.tableWrap}>
               <Table>
                 <TableHeader>
                   <TableRow className="border-white/10 hover:bg-transparent">
                     {[
-                      ["Photo", "Image du materiel"],
-                      ["SKU", "Reference interne du materiel"],
-                      ["Materiel", "Nom et numero de serie"],
-                      ["Categorie", "Famille d'equipement"],
-                      ["Localisation", "Site ou entrepot"],
-                      ["Affectation", "Agent ou service alloue"],
-                      ["Valeur", "Prix d'achat en USD"],
-                      [
-                        "Statut",
-                        "Etat operationnel : disponible, assigne, maintenance, critique...",
-                      ],
-                      [
-                        "Panne",
-                        "Reference de la panne ouverte liee au materiel, sinon aucune",
-                      ],
-                      ["Actions", "Modifier ou supprimer"],
-                    ].map(([head, hint]) => (
-                      <TableHead
-                        className="text-[0.65rem] font-bold uppercase tracking-[0.22em] text-slate-400"
-                        key={head}
-                        title={hint}
-                      >
+                      "Photo",
+                      KYC_PROCO_COLUMNS.NO,
+                      KYC_WORKSTATION_COLUMNS.WORK_STATION,
+                      KYC_PROCO_COLUMNS.DESCRIPTION,
+                      KYC_PROCO_COLUMNS.SERIAL_NUMBER,
+                      "Categorie",
+                      KYC_PROCO_COLUMNS.LOCATION,
+                      KYC_PROCO_COLUMNS.DESIGNATED_CUSTODIAN,
+                      `${KYC_PROCO_COLUMNS.SYSTEM} / ${KYC_PROCO_COLUMNS.HDD_RAM}`,
+                      KYC_PROCO_COLUMNS.STATUS,
+                      "Actions",
+                    ].map((head) => (
+                      <TableHead className="text-xs text-slate-500" key={head}>
                         {head}
                       </TableHead>
                     ))}
@@ -569,72 +519,51 @@ export function InventoryContent() {
                 </TableHeader>
                 <TableBody>
                   {filteredAssets.map((asset) => (
-                    <TableRow className="border-white/6 hover:bg-white/5" key={asset.id}>
+                    <TableRow className="border-white/6" key={asset.id}>
                       <TableCell>
-                        <AssetImageThumb
-                          alt={asset.name}
-                          imageUrl={asset.imageUrl}
-                          size="sm"
-                        />
+                        <AssetImageThumb alt={asset.name} imageUrl={asset.imageUrl} size="sm" />
                       </TableCell>
-                      <TableCell className="font-mono text-xs text-slate-400">
-                        {asset.sku}
-                      </TableCell>
+                      <TableCell className="font-mono text-xs">{asset.sku}</TableCell>
+                      <TableCell className="text-xs">{asset.workstationCode ?? "-"}</TableCell>
                       <TableCell>
-                        <p className="font-bold text-white">{asset.name}</p>
-                        <p className="text-xs text-slate-500">
-                          {asset.serialNumber ?? "Sans numero de serie"}
-                        </p>
+                        <p className="font-medium">{asset.name}</p>
+                        {asset.model ? (
+                          <p className="text-xs text-slate-500">{asset.model}</p>
+                        ) : null}
                       </TableCell>
-                      <TableCell className="text-slate-300">
-                        {asset.category}
+                      <TableCell className="text-xs text-slate-400">
+                        {asset.serialNumber ?? "-"}
                       </TableCell>
-                      <TableCell className="text-[#8cc6ff]">
+                      <TableCell className="text-sm">{asset.category}</TableCell>
+                      <TableCell className="text-sm">
                         <span className="inline-flex items-center gap-1">
                           <MapPin className="size-3" />
                           {asset.location}
                         </span>
                       </TableCell>
-                      <TableCell className="text-slate-300">
-                        {asset.assignedTo}
+                      <TableCell className="text-sm">
+                        {asset.custodianName ?? asset.assignedTo}
                       </TableCell>
-                      <TableCell
-                        className={
-                          asset.value === "-"
-                            ? "text-xs text-slate-500"
-                            : "font-semibold text-white"
-                        }
-                      >
-                        {formatAssetValue(asset.value)}
+                      <TableCell className="text-xs text-slate-400">
+                        {[asset.systemOs, asset.storageRam].filter(Boolean).join(" · ") || "-"}
                       </TableCell>
                       <TableCell>
                         <StatusBadge status={asset.status} />
                       </TableCell>
                       <TableCell>
-                        {asset.openIncident ? (
-                          <span className="inline-flex items-center gap-1.5">
-                            <Badge className="bg-[#ff2f45]/20 text-[#ff7a88]">
-                              <AlertTriangle className="size-3" />
-                              {asset.openIncident}
-                            </Badge>
-                            <CopyReferenceButton value={asset.openIncident} />
-                          </span>
-                        ) : (
-                          <span className="text-xs text-slate-400">Aucune panne ouverte</span>
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        <div className="flex gap-2">
+                        <div className="flex gap-1">
                           <Button
-                            className="bg-white/10 text-white hover:bg-white/15"
+                            className={ui.btnSecondary}
                             onClick={() => handleEdit(asset)}
+                            size="sm"
                             type="button"
                           >
                             Modifier
                           </Button>
                           <Button
-                            className="bg-[#ff2f45]/20 text-[#ff7a88] hover:bg-[#ff2f45]/30"
+                            className="bg-red-900/30 text-red-200 hover:bg-red-900/50"
                             onClick={() => handleDelete(asset.id)}
+                            size="sm"
                             type="button"
                           >
                             Supprimer
@@ -645,6 +574,7 @@ export function InventoryContent() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
             ) : null}
           </CardContent>
         </Card>

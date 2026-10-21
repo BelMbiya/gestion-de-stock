@@ -69,6 +69,29 @@ enum IncidentStatus {
   CLOSED
 }
 
+enum SupportTicketCategory {
+  HARDWARE
+  SOFTWARE
+  NETWORK
+  ACCESS
+  OTHER
+}
+
+enum SupportTicketPriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum SupportTicketStatus {
+  OPEN
+  IN_PROGRESS
+  WAITING_USER
+  RESOLVED
+  CLOSED
+}
+
 enum AuditAction {
   CREATE
   UPDATE
@@ -77,6 +100,7 @@ enum AuditAction {
   TRANSFER
   STATUS_CHANGE
   INCIDENT_UPDATE
+  SUPPORT_TICKET_UPDATE
   SIGN_IN
   SIGN_OUT
 }
@@ -95,6 +119,9 @@ model User {
   assignedIncidents Incident[]        @relation("IncidentAssignee")
   reportedIncidents Incident[]        @relation("IncidentReporter")
   incidentUpdates   IncidentUpdate[]
+  assignedSupportTickets SupportTicket[] @relation("SupportTicketAssignee")
+  requestedSupportTickets SupportTicket[] @relation("SupportTicketRequester")
+  supportTicketUpdates SupportTicketUpdate[]
   stockMovements    StockMovement[]   @relation("MovementPerformedBy")
   inventoryChecks   InventoryCheck[]  @relation("InventoryCheckedBy")
   auditLogs         AuditLog[]
@@ -159,6 +186,13 @@ model Asset {
   brand           String?
   model           String?
   imageUrl        String?
+  systemOs        String?
+  storageRam      String?
+  ownerLabel      String?
+  custodianName   String?
+  workstationCode String?
+  processLabel    String?
+  assetGroup      String?
   status          AssetStatus       @default(AVAILABLE)
   condition       AssetCondition    @default(GOOD)
   unit            String            @default("unite")
@@ -181,6 +215,7 @@ model Asset {
   stockMovements  StockMovement[]
   inventoryChecks InventoryCheck[]
   incidents       Incident[]
+  supportTickets  SupportTicket[]
   auditLogs       AuditLog[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -312,6 +347,185 @@ model IncidentUpdate {
   @@index([incidentId])
   @@index([authorId])
   @@index([statusTo])
+}
+
+model SupportTicket {
+  id           String                @id @default(cuid())
+  reference    String                @unique
+  title        String
+  description  String?               @db.Text
+  category     SupportTicketCategory @default(OTHER)
+  priority     SupportTicketPriority @default(MEDIUM)
+  status       SupportTicketStatus   @default(OPEN)
+  requesterId  String?
+  requester    User?                 @relation("SupportTicketRequester", fields: [requesterId], references: [id])
+  assigneeId   String?
+  assignee     User?                 @relation("SupportTicketAssignee", fields: [assigneeId], references: [id])
+  assetId      String?
+  asset        Asset?                @relation(fields: [assetId], references: [id])
+  contactEmail String?
+  contactPhone String?
+  openedAt     DateTime              @default(now())
+  resolvedAt   DateTime?
+  closedAt     DateTime?
+  updates      SupportTicketUpdate[]
+  createdAt    DateTime              @default(now())
+  updatedAt    DateTime              @updatedAt
+
+  @@index([status])
+  @@index([priority])
+  @@index([category])
+  @@index([requesterId])
+  @@index([assigneeId])
+  @@index([assetId])
+}
+
+model SupportTicketUpdate {
+  id         String               @id @default(cuid())
+  ticketId   String
+  ticket     SupportTicket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId   String?
+  author     User?                @relation(fields: [authorId], references: [id])
+  statusFrom SupportTicketStatus?
+  statusTo   SupportTicketStatus?
+  comment    String               @db.Text
+  createdAt  DateTime             @default(now())
+
+  @@index([ticketId])
+  @@index([authorId])
+}
+
+model SheetProcoKycCallItEquipement {
+  id                  String    @id @default(cuid())
+  section             String?
+  rowNo               Int?
+  description         String
+  model               String?
+  serialNumber        String?
+  systemLabel         String?   @map("system")
+  hddRam              String?
+  location            String?
+  owner               String?
+  designatedCustodian String?
+  relativeValue       String?
+  lossImplication     String?   @db.Text
+  riskSecurity        String?   @db.Text
+  conditionLabel      String?   @map("condition")
+  purchaseDate        DateTime?
+  acquisitionDate     DateTime?
+  statusLabel         String?   @map("status")
+  createdAt           DateTime  @default(now())
+
+  @@map("PROCO KYC & CALL IT EQUIPEMENT")
+  @@index([rowNo])
+  @@index([serialNumber])
+}
+
+model SheetInStore {
+  id        String   @id @default(cuid())
+  rowNo     Int
+  item      String
+  vendor    String?
+  number    Int      @default(1)
+  condition String?
+  createdAt DateTime @default(now())
+
+  @@map("IN STORE")
+  @@index([rowNo])
+}
+
+model SheetDispostionKyc {
+  id            String   @id @default(cuid())
+  provisionType String
+  item          String
+  department    String?
+  total         String?
+  createdAt     DateTime @default(now())
+
+  @@map("Dispostion KYC")
+}
+
+model SheetOtherAssets {
+  id           String   @id @default(cuid())
+  section      String?
+  rowNo        Int?
+  brand        String?
+  model        String?
+  vinOrSerial  String?
+  licensePlate String?
+  location     String?
+  quantity     Int      @default(1)
+  condition    String?
+  createdAt    DateTime @default(now())
+
+  @@map("Other Assets")
+  @@index([rowNo])
+}
+
+model SheetPurchaseDelivered {
+  id        String    @id @default(cuid())
+  block     String
+  rowNo     Int?
+  item      String
+  quantity  Int       @default(0)
+  blockDate DateTime?
+  createdAt DateTime  @default(now())
+
+  @@map("PURCHASE & DELIVERED")
+}
+
+model SheetMaterialAccounts {
+  id            String   @id @default(cuid())
+  zone          String
+  rowNo         Int
+  item          String
+  quantity      Int      @default(0)
+  goodCondition Int      @default(0)
+  badCondition  Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  @@map("MATERIAL ACCOUNTS")
+  @@index([zone])
+}
+
+model SheetEquipmentCondition {
+  id            String   @id @default(cuid())
+  equipmentType String
+  management    String?
+  count         Int?
+  working       Int?
+  notWorking    Int?
+  createdAt     DateTime @default(now())
+
+  @@map("Equipment Condition")
+}
+
+model SheetWorkstations {
+  id           String   @id @default(cuid())
+  side         String
+  rank         String?
+  workStation  String
+  serialNumber String?
+  materiels    String?
+  user         String?
+  process      String?
+  status       String?
+  createdAt    DateTime @default(now())
+
+  @@map("Workstations")
+  @@index([workStation])
+  @@index([serialNumber])
+}
+
+model SheetFeuil1 {
+  id        String   @id @default(cuid())
+  status    String
+  materiels String?
+  user      String?
+  process   String?
+  createdAt DateTime @default(now())
+
+  @@map("Feuil1")
 }
 
 model MaintenancePart {

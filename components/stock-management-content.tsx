@@ -18,6 +18,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { ArticleDetailDialog } from "@/components/article-detail-dialog";
 import { AssetImageThumb } from "@/components/asset-image-thumb";
 import { AssetImageUpload } from "@/components/asset-image-upload";
+import { AssetSearchSelect } from "@/components/asset-search-select";
 import { CopyReferenceButton } from "@/components/copy-reference-button";
 
 import { ExportPdfButton } from "@/components/export-pdf-button";
@@ -46,6 +47,9 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+
+import { ui } from "@/lib/ui-styles";
+import { KYC_IN_STORE_COLUMNS, KYC_OTHER_ASSETS_COLUMNS, KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
 
 type StockAsset = {
   id: string;
@@ -177,26 +181,26 @@ const emptyArticleForm: ArticleForm = {
 };
 
 const tabs = [
-  { id: "articles", label: "Articles", icon: Package },
-  { id: "movements", label: "Mouvements", icon: Truck },
+  { id: "articles", label: KYC_IN_STORE_COLUMNS.ITEM, icon: Package },
+  { id: "movements", label: KYC_UI.MOVEMENTS, icon: Truck },
   { id: "alerts", label: "Alertes", icon: AlertTriangle },
-  { id: "inventory", label: "Inventaire physique", icon: ClipboardList },
-  { id: "suppliers", label: "Fournisseurs", icon: Warehouse },
+  { id: "inventory", label: KYC_UI.INVENTORY_CHECKS, icon: ClipboardList },
+  { id: "suppliers", label: KYC_UI.VENDOR, icon: Warehouse },
 ] as const;
 
 type TabId = (typeof tabs)[number]["id"];
 
 function StockBadge({ status }: { status: string }) {
   if (status === "OUT" || status === "Rupture") {
-    return <Badge className="bg-[#ff2f45]/20 text-[#ff9aa5]">{status}</Badge>;
+    return <Badge className="bg-red-900/40 text-red-200">{status}</Badge>;
   }
   if (status === "LOW" || status === "Stock bas") {
-    return <Badge className="bg-amber-500/20 text-amber-200">{status}</Badge>;
+    return <Badge className="bg-slate-700 text-slate-200">{status}</Badge>;
   }
   if (status === "OVER" || status === "Surstock") {
-    return <Badge className="bg-purple-500/20 text-purple-200">{status}</Badge>;
+    return <Badge className="bg-slate-600 text-slate-200">{status}</Badge>;
   }
-  return <Badge className="bg-white/10 text-white">{status}</Badge>;
+  return <Badge className="bg-slate-800 text-slate-300">{status}</Badge>;
 }
 
 export function StockManagementContent() {
@@ -495,9 +499,9 @@ export function StockManagementContent() {
 
   if (isLoading) {
     return (
-      <section className="flex flex-col gap-5 text-white">
-        <Card className="border-white/10 bg-white/6 text-white ring-0">
-          <CardContent className="p-6">Chargement du stock...</CardContent>
+      <section className={ui.page}>
+        <Card className={`${ui.panel} ring-0`}>
+          <CardContent className={`${ui.panelBody} text-sm text-slate-400`}>Chargement du stock...</CardContent>
         </Card>
       </section>
     );
@@ -505,20 +509,20 @@ export function StockManagementContent() {
 
   if (loadError || !data) {
     return (
-      <section className="flex flex-col gap-5 text-white">
-        <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-          <CardContent className="flex flex-col gap-4 p-6">
-            <p className="text-sm text-[#ff7a88]">
+      <section className={ui.page}>
+        <Card className={`${ui.panel} ring-0`}>
+          <CardContent className={`${ui.panelBody} flex flex-col gap-4`}>
+            <p className="text-sm text-red-200">
               {loadError ?? "Donnees de stock indisponibles."}
             </p>
             <p className="text-sm text-slate-400">
               Si vous venez d&apos;ajouter la gestion de stock, executez{" "}
-              <code className="rounded bg-white/10 px-1">npx prisma migrate deploy</code> puis{" "}
-              <code className="rounded bg-white/10 px-1">npx prisma generate</code> et relancez{" "}
-              <code className="rounded bg-white/10 px-1">npm run dev</code>.
+              <code className="rounded bg-slate-800 px-1">npx prisma migrate deploy</code> puis{" "}
+              <code className="rounded bg-slate-800 px-1">npx prisma generate</code> et relancez{" "}
+              <code className="rounded bg-slate-800 px-1">npm run dev</code>.
             </p>
             <Button
-              className="w-fit bg-[#6fb6ff] text-[#0d1433] hover:bg-[#9fd0ff]"
+              className={`w-fit ${ui.btnSecondary}`}
               onClick={() => void loadStock()}
               type="button"
             >
@@ -531,31 +535,29 @@ export function StockManagementContent() {
   }
 
   return (
-    <section className="flex flex-col gap-5 pb-4 text-white">
-      <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/30 xl:flex-row xl:items-center xl:justify-between">
+    <section className={`${ui.page} pb-4`}>
+      <header className={`${ui.header} xl:flex xl:items-center xl:justify-between`}>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-[#6fb6ff]">
-            Gestion de stock
-          </p>
-          <h1 className="mt-2 text-3xl font-black">Stock IT complet</h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-300">
-            Articles, quantites, seuils, mouvements, fournisseurs et inventaires
-            physiques dans un module unique.
+          <p className={ui.eyebrow}>{KYC_SHEET_LABELS.IN_STORE}</p>
+          <h1 className={ui.title}>{KYC_SHEET_LABELS.IN_STORE}</h1>
+          <p className={`${ui.subtitle} mt-1 max-w-3xl`}>
+            {KYC_IN_STORE_COLUMNS.ITEM}, {KYC_IN_STORE_COLUMNS.NUMBER}, {KYC_UI.VENDOR},{" "}
+            {KYC_UI.MOVEMENTS} & {KYC_UI.INVENTORY_CHECKS}.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2 xl:mt-0">
           <ExportPdfButton
             filename="gestion-stock-it"
             sections={[
               {
                 columns: [
-                  "SKU",
-                  "Article",
-                  "Qte",
+                  KYC_UI.NO,
+                  KYC_UI.DESCRIPTION,
+                  KYC_UI.NUMBER,
                   "Seuil",
-                  "Emplacement",
-                  "Statut stock",
-                  "Valeur",
+                  KYC_UI.LOCATION,
+                  KYC_UI.STATUS,
+                  KYC_UI.RELATIVE_VALUE,
                 ],
                 rows: filteredAssets.map((asset) => [
                   asset.sku,
@@ -568,11 +570,11 @@ export function StockManagementContent() {
                 ]),
               },
             ]}
-            subtitle={`PROCO & Cie - ${filteredAssets.length} article(s)`}
-            title="Gestion de stock IT"
+            subtitle={`PROCO & Cie - ${filteredAssets.length} ${KYC_IN_STORE_COLUMNS.ITEM}(s)`}
+            title={KYC_SHEET_LABELS.IN_STORE}
           />
           <Button
-            className="bg-[#ff2f45] text-white hover:bg-[#ff4b5e]"
+            className={ui.btnPrimary}
             onClick={() => {
               setEditingArticleId(null);
               setArticleForm(emptyArticleForm);
@@ -581,52 +583,52 @@ export function StockManagementContent() {
             type="button"
           >
             <Plus className="size-4" />
-            Nouvel article
+            Nouvel {KYC_IN_STORE_COLUMNS.ITEM}
           </Button>
         </div>
       </header>
 
       <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-5">
-        <Card className="border-white/10 bg-[#11183b]/95 ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Boxes className="size-5 text-[#6fb6ff]" />
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Boxes className="size-4 text-slate-400" />
               {data.summary.totalArticles}
             </CardTitle>
-            <CardDescription className="text-slate-400">Articles</CardDescription>
+            <CardDescription className="text-slate-400">{KYC_IN_STORE_COLUMNS.ITEM}</CardDescription>
           </CardHeader>
         </Card>
-        <Card className="border-white/10 bg-[#11183b]/95 ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Package className="size-5 text-[#6fb6ff]" />
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Package className="size-4 text-slate-400" />
               {data.summary.totalQuantity}
             </CardTitle>
             <CardDescription className="text-slate-400">Quantite totale</CardDescription>
           </CardHeader>
         </Card>
-        <Card className="border-white/10 bg-[#11183b]/95 ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <Warehouse className="size-5 text-[#6fb6ff]" />
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <Warehouse className="size-4 text-slate-400" />
               {data.summary.totalValue}
             </CardTitle>
             <CardDescription className="text-slate-400">Valeur stock</CardDescription>
           </CardHeader>
         </Card>
-        <Card className="border-white/10 bg-[#11183b]/95 ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="size-5 text-[#6fb6ff]" />
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <AlertTriangle className="size-4 text-slate-400" />
               {data.summary.lowStock}
             </CardTitle>
             <CardDescription className="text-slate-400">Alertes</CardDescription>
           </CardHeader>
         </Card>
-        <Card className="border-white/10 bg-[#11183b]/95 ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <ClipboardList className="size-5 text-[#6fb6ff]" />
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <ClipboardList className="size-4 text-slate-400" />
               {data.summary.available}
             </CardTitle>
             <CardDescription className="text-slate-400">Disponibles</CardDescription>
@@ -641,8 +643,8 @@ export function StockManagementContent() {
             <Button
               className={
                 activeTab === tab.id
-                  ? "bg-[#6fb6ff]/20 text-white"
-                  : "bg-white/8 text-slate-300 hover:bg-white/12"
+                  ? `${ui.btnPrimary} bg-red-900/40 hover:bg-red-900/50`
+                  : ui.btnSecondary
               }
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
@@ -656,38 +658,41 @@ export function StockManagementContent() {
       </div>
 
       {activeTab === "articles" ? (
-        <Card className="border-white/10 bg-[#11183b]/95 ring-0">
-          <CardHeader className="gap-4 md:flex-row md:items-center md:justify-between">
-            <CardTitle>Catalogue articles</CardTitle>
+        <Card className={`${ui.panel} ${ui.tablePanel} ring-0`}>
+          <CardHeader className={`${ui.panelHeader} gap-4 md:flex-row md:items-center md:justify-between`}>
+            <CardTitle className="text-base font-semibold">
+              Catalogue {KYC_IN_STORE_COLUMNS.ITEM}
+            </CardTitle>
             <div className="relative w-full max-w-md">
-              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
               <Input
-                className="h-10 border-white/10 bg-white/6 pl-9"
+                className={`${ui.input} pl-9`}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="SKU, code-barres, nom, marque..."
+                placeholder={KYC_UI.SEARCH_PLACEHOLDER}
                 value={searchQuery}
               />
             </div>
           </CardHeader>
-          <CardContent className="overflow-auto">
+          <CardContent className={ui.tablePanelBody}>
+            <div className={ui.tableWrap}>
             <Table>
               <TableHeader>
                 <TableRow className="border-white/10 hover:bg-transparent">
                   {[
-                    "Photo",
-                    "SKU",
-                    "Article",
-                    "Qte",
+                    KYC_UI.PHOTO,
+                    KYC_UI.NO,
+                    KYC_UI.DESCRIPTION,
+                    KYC_IN_STORE_COLUMNS.NUMBER,
                     "Seuils",
-                    "Emplacement",
-                    "Fournisseur",
-                    "Stock",
-                    "Statut",
-                    "Panne",
-                    "Valeur",
-                    "Actions",
+                    KYC_UI.LOCATION,
+                    KYC_IN_STORE_COLUMNS.VENDOR,
+                    KYC_SHEET_LABELS.IN_STORE,
+                    KYC_UI.STATUS,
+                    KYC_UI.INCIDENT,
+                    KYC_UI.RELATIVE_VALUE,
+                    KYC_UI.ACTIONS,
                   ].map((h) => (
-                    <TableHead className="text-slate-400" key={h}>
+                    <TableHead className="text-xs text-slate-500" key={h}>
                       {h}
                     </TableHead>
                   ))}
@@ -696,7 +701,7 @@ export function StockManagementContent() {
               <TableBody>
                 {filteredAssets.map((asset) => (
                   <TableRow
-                    className="cursor-pointer border-white/6 hover:bg-white/5"
+                    className="cursor-pointer border-white/6"
                     key={asset.id}
                     onClick={() => openArticleDetail(asset)}
                   >
@@ -709,7 +714,7 @@ export function StockManagementContent() {
                     </TableCell>
                     <TableCell className="font-mono text-xs">{asset.sku}</TableCell>
                     <TableCell>
-                      <p className="font-bold">{asset.name}</p>
+                      <p className="font-medium">{asset.name}</p>
                       <p className="text-xs text-slate-500">
                         {asset.brand} {asset.model} · {asset.barcode ?? "Sans code-barres"}
                       </p>
@@ -727,13 +732,13 @@ export function StockManagementContent() {
                       <StockBadge status={asset.stockStatusLabel} />
                     </TableCell>
                     <TableCell>
-                      <Badge className="bg-white/10">{asset.status}</Badge>
+                      <Badge className="bg-slate-800 text-slate-300">{asset.status}</Badge>
                     </TableCell>
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       {asset.openIncident ? (
                         <div className="flex items-center gap-1">
                           <Link
-                            className="text-xs text-[#6fb6ff] hover:underline"
+                            className="text-xs text-slate-400 hover:underline"
                             href={`/pannes?ref=${asset.openIncident}`}
                           >
                             {asset.openIncident}
@@ -748,7 +753,7 @@ export function StockManagementContent() {
                     <TableCell onClick={(e) => e.stopPropagation()}>
                       <div className="flex flex-wrap gap-1">
                         <Button
-                          className="bg-white/10 text-xs"
+                          className={`text-xs ${ui.btnSecondary}`}
                           onClick={() => openEditArticle(asset)}
                           type="button"
                         >
@@ -756,7 +761,7 @@ export function StockManagementContent() {
                         </Button>
                         <Button
                           aria-label="Trace"
-                          className="bg-[#6fb6ff]/20 text-xs text-white"
+                          className={`text-xs ${ui.btnSecondary}`}
                           onClick={() => void openTraceability(asset.id)}
                           type="button"
                         >
@@ -765,7 +770,7 @@ export function StockManagementContent() {
                         </Button>
                         <Button
                           aria-label="Supprimer"
-                          className="bg-[#ff2f45]/20 text-xs text-[#ff9aa5]"
+                          className="bg-red-900/30 text-xs text-red-200 hover:bg-red-900/50"
                           onClick={() => void deleteArticle(asset.id)}
                           type="button"
                         >
@@ -777,28 +782,38 @@ export function StockManagementContent() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       ) : null}
 
       {activeTab === "movements" ? (
-        <Card className="border-white/10 bg-[#11183b]/95 ring-0">
-          <CardHeader className="flex-row items-center justify-between">
+        <Card className={`${ui.panel} ${ui.tablePanel} ring-0`}>
+          <CardHeader className={`${ui.panelHeader} flex-row items-center justify-between`}>
             <CardTitle>Mouvements de stock</CardTitle>
             <Button
-              className="bg-[#ff2f45]"
+              className={ui.btnPrimary}
               onClick={() => setIsMovementOpen(true)}
               type="button"
             >
               Enregistrer mouvement
             </Button>
           </CardHeader>
-          <CardContent className="overflow-auto">
+          <CardContent className={ui.tablePanelBody}>
+            <div className={ui.tableWrap}>
             <Table>
               <TableHeader>
                 <TableRow className="border-white/10 hover:bg-transparent">
-                  {["Date", "Article", "Type", "Qte", "Depuis", "Vers", "Motif"].map((h) => (
-                    <TableHead className="text-slate-400" key={h}>
+                  {[
+                    KYC_UI.DATE,
+                    KYC_UI.DESCRIPTION,
+                    KYC_UI.TYPE,
+                    KYC_UI.QTY,
+                    KYC_UI.FROM,
+                    KYC_UI.TO,
+                    KYC_UI.REASON,
+                  ].map((h) => (
+                    <TableHead className="text-xs text-slate-500" key={h}>
                       {h}
                     </TableHead>
                   ))}
@@ -818,43 +833,41 @@ export function StockManagementContent() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       ) : null}
 
       {activeTab === "alerts" ? (
-        <Card className="border-white/10 bg-[#11183b]/95 ring-0">
-          <CardHeader>
+        <Card className={`${ui.panel} ${ui.tablePanel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
             <CardTitle>Alertes stock bas et ruptures</CardTitle>
             <CardDescription className="text-slate-400">
-              Articles en seuil bas, rupture ou surstock.
+              {KYC_IN_STORE_COLUMNS.ITEM} en seuil bas, rupture ou surstock.
             </CardDescription>
           </CardHeader>
-          <CardContent className="p-0">
+          <CardContent className={ui.tablePanelBody}>
             {data.alerts.length === 0 ? (
-              <p className="p-4 text-slate-400">Aucune alerte active.</p>
+              <p className="text-slate-400">Aucune alerte active.</p>
             ) : (
-              <div className="overflow-auto [scrollbar-gutter:stable]">
-                <Table className="table-fixed">
+              <div className={ui.tableWrap}>
+                <Table className="table-fixed min-w-[720px]">
                   <TableHeader>
                     <TableRow className="border-white/10 hover:bg-transparent">
                       <TableHead className="w-[4rem] px-4 text-slate-400">
                         Photo
                       </TableHead>
                       <TableHead className="w-[14%] px-4 text-slate-400">
-                        Reference
+                        {KYC_UI.NO}
                       </TableHead>
                       <TableHead className="w-[24%] px-4 text-slate-400">
-                        Materiel
+                        {KYC_UI.DESCRIPTION}
                       </TableHead>
                       <TableHead className="w-[14%] px-4 text-slate-400">
-                        Quantite
+                        {KYC_IN_STORE_COLUMNS.NUMBER}
                       </TableHead>
                       <TableHead className="w-[14%] px-4 text-slate-400">
-                        Seuil
-                      </TableHead>
-                      <TableHead className="w-[18%] px-4 text-slate-400">
-                        Localisation
+                        {KYC_UI.LOCATION}
                       </TableHead>
                       <TableHead className="w-[10%] px-4 text-slate-400">
                         Statut
@@ -864,7 +877,7 @@ export function StockManagementContent() {
                   <TableBody>
                     {data.alerts.map((asset) => (
                         <TableRow
-                          className="cursor-pointer border-white/6 hover:bg-white/5"
+                          className="cursor-pointer border-white/6"
                           key={asset.id}
                           onClick={() => openArticleDetail(asset)}
                         >
@@ -875,7 +888,7 @@ export function StockManagementContent() {
                               size="sm"
                             />
                           </TableCell>
-                          <TableCell className="px-4 align-top font-mono text-xs text-[#6fb6ff]">
+                          <TableCell className="px-4 align-top font-mono text-xs text-slate-400">
                             {asset.sku}
                           </TableCell>
                           <TableCell className="px-4 align-top font-medium text-white">
@@ -907,7 +920,7 @@ export function StockManagementContent() {
       ) : null}
 
       {activeTab === "inventory" ? (
-        <Card className="border-white/10 bg-[#11183b]/95 ring-0">
+        <Card className={`${ui.panel} ring-0`}>
           <CardHeader>
             <CardTitle>Inventaire physique</CardTitle>
             <CardDescription>
@@ -917,13 +930,13 @@ export function StockManagementContent() {
           <CardContent className="space-y-4">
             <div className="flex flex-wrap gap-3">
               <Input
-                className="h-11 max-w-md border-white/10 bg-white/6"
+                className={`${ui.input} max-w-md`}
                 onChange={(e) => setSessionName(e.target.value)}
                 placeholder="Nom de la session (ex. Inventaire Q2 2026)"
                 value={sessionName}
               />
               <Button
-                className="bg-[#ff2f45]"
+                className={ui.btnPrimary}
                 onClick={() => void startInventorySession()}
                 type="button"
               >
@@ -932,12 +945,12 @@ export function StockManagementContent() {
             </div>
             {data.sessions.map((session) => (
               <div
-                className="rounded-xl border border-white/10 bg-white/6 p-4"
+                className="rounded-md border border-white/10 bg-slate-900/50 p-4"
                 key={session.id}
               >
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <div>
-                    <p className="font-bold">{session.name}</p>
+                    <p className="font-medium">{session.name}</p>
                     <p className="text-sm text-slate-400">
                       {session.startedAt} · {session.checksCount} controles ·{" "}
                       {session.isOpen ? "En cours" : "Cloture"}
@@ -954,7 +967,7 @@ export function StockManagementContent() {
                   </div>
                   <div className="flex gap-2">
                     <Button
-                      className="bg-white/10"
+                      className={ui.btnSecondary}
                       onClick={() => void openInventorySession(session.id)}
                       type="button"
                     >
@@ -962,7 +975,7 @@ export function StockManagementContent() {
                     </Button>
                     {session.isOpen ? (
                       <Button
-                        className="bg-[#6fb6ff]/20"
+                        className={ui.btnPrimary}
                         onClick={() => void closeInventorySession(session.id)}
                         type="button"
                       >
@@ -974,16 +987,16 @@ export function StockManagementContent() {
               </div>
             ))}
             {inventoryDetail ? (
-              <Card className="border-white/10 bg-[#0d1433] ring-0">
-                <CardHeader>
-                  <CardTitle>Reconciliation — {inventoryDetail.name}</CardTitle>
-                  <CardDescription>
+              <Card className={`${ui.panel} ring-0`}>
+                <CardHeader className={ui.panelHeader}>
+                  <CardTitle className="text-base font-semibold">Reconciliation — {inventoryDetail.name}</CardTitle>
+                  <CardDescription className={ui.subtitle}>
                     Marquez chaque ligne: trouve, manquant, endommage ou deplace.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="min-h-0 max-h-[min(28rem,50vh)] overflow-auto p-0 [scrollbar-gutter:stable]">
+                <CardContent className={`${ui.panelBody} min-h-0 max-h-[min(28rem,50vh)] overflow-auto p-0 [scrollbar-gutter:stable]`}>
                   <Table className="table-fixed">
-                    <TableHeader className="sticky top-0 z-10 bg-[#0d1433]">
+                    <TableHeader>
                       <TableRow className="border-white/10 hover:bg-transparent">
                         <TableHead className="w-[4rem] px-4 text-slate-400">
                           Photo
@@ -992,10 +1005,10 @@ export function StockManagementContent() {
                           Reference
                         </TableHead>
                         <TableHead className="w-[26%] px-4 text-slate-400">
-                          Materiel
+                          {KYC_UI.DESCRIPTION}
                         </TableHead>
                         <TableHead className="w-[28%] px-4 text-slate-400">
-                          Emplacement attendu
+                          {KYC_UI.EXPECTED_LOCATION}
                         </TableHead>
                         <TableHead className="w-[22%] px-4 text-slate-400">
                           Statut
@@ -1004,10 +1017,7 @@ export function StockManagementContent() {
                     </TableHeader>
                     <TableBody>
                       {inventoryDetail.checks.map((check) => (
-                        <TableRow
-                          className="border-white/6 hover:bg-white/5"
-                          key={check.id}
-                        >
+                        <TableRow className="border-white/6" key={check.id}>
                           <TableCell className="px-4 align-top">
                             <AssetImageThumb
                               alt={check.asset}
@@ -1015,7 +1025,7 @@ export function StockManagementContent() {
                               size="sm"
                             />
                           </TableCell>
-                          <TableCell className="px-4 align-top font-mono text-xs text-[#6fb6ff]">
+                          <TableCell className="px-4 align-top font-mono text-xs text-slate-400">
                             {check.sku}
                           </TableCell>
                           <TableCell className="px-4 align-top font-medium text-white">
@@ -1027,7 +1037,7 @@ export function StockManagementContent() {
                           <TableCell className="px-4 align-top">
                             <select
                               aria-label={`Statut inventaire ${check.sku}`}
-                              className="h-9 w-full min-w-[9rem] rounded-lg border border-white/10 bg-[#11183b] px-2 text-sm text-white"
+                              className={`${ui.input} w-full min-w-[9rem] px-2 text-sm text-white`}
                               onChange={(e) =>
                                 void updateInventoryCheck(
                                   check.id,
@@ -1055,11 +1065,11 @@ export function StockManagementContent() {
       ) : null}
 
       {activeTab === "suppliers" ? (
-        <Card className="border-white/10 bg-[#11183b]/95 ring-0">
-          <CardHeader className="flex-row items-center justify-between">
+        <Card className={`${ui.panel} ${ui.tablePanel} ring-0`}>
+          <CardHeader className={`${ui.panelHeader} flex-row items-center justify-between`}>
             <CardTitle>Fournisseurs</CardTitle>
             <Button
-              className="bg-[#ff2f45]"
+              className={ui.btnPrimary}
               onClick={() => {
                 setEditingSupplierId(null);
                 setSupplierForm({ code: "", name: "", email: "", phone: "" });
@@ -1070,12 +1080,18 @@ export function StockManagementContent() {
               Ajouter fournisseur
             </Button>
           </CardHeader>
-          <CardContent>
+          <CardContent className={ui.tablePanelBody}>
+            <div className={ui.tableWrap}>
             <Table>
               <TableHeader>
                 <TableRow className="border-white/10 hover:bg-transparent">
-                  {["Code", "Nom", "Articles lies", "Actions"].map((h) => (
-                    <TableHead className="text-slate-400" key={h}>
+                  {[
+                    KYC_UI.CODE,
+                    KYC_UI.NAME,
+                    KYC_UI.LINKED_ITEMS,
+                    KYC_UI.ACTIONS,
+                  ].map((h) => (
+                    <TableHead className="text-xs text-slate-500" key={h}>
                       {h}
                     </TableHead>
                   ))}
@@ -1091,7 +1107,7 @@ export function StockManagementContent() {
                       <div className="flex gap-1">
                         <Button
                           aria-label={`Modifier fournisseur ${s.code}`}
-                          className="bg-white/10 text-xs"
+                          className={`text-xs ${ui.btnSecondary}`}
                           onClick={() => {
                             setEditingSupplierId(s.id);
                             setSupplierForm({
@@ -1107,7 +1123,7 @@ export function StockManagementContent() {
                           Modifier
                         </Button>
                         <Button
-                          className="bg-[#ff2f45]/20 text-xs text-[#ff9aa5]"
+                          className="bg-red-900/30 text-xs text-red-200 hover:bg-red-900/50"
                           onClick={() => void deleteSupplier(s.id)}
                           type="button"
                         >
@@ -1119,6 +1135,7 @@ export function StockManagementContent() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           </CardContent>
         </Card>
       ) : null}
@@ -1127,7 +1144,9 @@ export function StockManagementContent() {
         <DialogContent className="!flex max-h-[min(92vh,52rem)] w-[min(calc(100vw-2rem),58rem)] max-w-none flex-col gap-0 overflow-hidden border-white/10 bg-[#11183b] p-0 text-white sm:max-w-none">
           <DialogHeader className="shrink-0 border-b border-white/10 px-6 py-5">
             <DialogTitle className="text-lg">
-              {editingArticleId ? "Modifier l'article" : "Nouvel article de stock"}
+              {editingArticleId
+                ? `Modifier ${KYC_IN_STORE_COLUMNS.ITEM}`
+                : `Nouvel ${KYC_IN_STORE_COLUMNS.ITEM}`}
             </DialogTitle>
             <DialogDescription className="text-slate-400">
               Tous les champs requis pour une gestion de stock professionnelle.
@@ -1141,20 +1160,20 @@ export function StockManagementContent() {
           >
             {(
               [
-                ["sku", "SKU *", articleForm.sku, true],
-                ["barcode", "Code-barres", articleForm.barcode, false],
-                ["name", "Designation *", articleForm.name, true],
-                ["brand", "Marque", articleForm.brand, false],
-                ["model", "Modele", articleForm.model, false],
-                ["serialNumber", "N° serie", articleForm.serialNumber, false],
-                ["quantityOnHand", "Quantite en stock *", articleForm.quantityOnHand, true],
+                ["sku", `${KYC_UI.NO} *`, articleForm.sku, true],
+                ["barcode", KYC_UI.BARCODE, articleForm.barcode, false],
+                ["name", `${KYC_UI.DESCRIPTION} *`, articleForm.name, true],
+                ["brand", KYC_OTHER_ASSETS_COLUMNS.BRAND, articleForm.brand, false],
+                ["model", KYC_UI.MODEL, articleForm.model, false],
+                ["serialNumber", KYC_UI.SERIAL_NUMBER, articleForm.serialNumber, false],
+                ["quantityOnHand", `${KYC_IN_STORE_COLUMNS.NUMBER} *`, articleForm.quantityOnHand, true],
                 ["unit", "Unite", articleForm.unit, false],
                 ["minQuantity", "Stock minimum", articleForm.minQuantity, false],
                 ["reorderPoint", "Seuil reappro", articleForm.reorderPoint, false],
                 ["maxQuantity", "Stock maximum", articleForm.maxQuantity, false],
-                ["purchaseValue", "Prix achat (USD)", articleForm.purchaseValue, false],
-                ["purchaseDate", "Date achat", articleForm.purchaseDate, false],
-                ["warrantyUntil", "Fin garantie", articleForm.warrantyUntil, false],
+                ["purchaseValue", KYC_UI.PURCHASE_PRICE, articleForm.purchaseValue, false],
+                ["purchaseDate", KYC_UI.PURCHASE_DATE, articleForm.purchaseDate, false],
+                ["warrantyUntil", KYC_UI.WARRANTY_UNTIL, articleForm.warrantyUntil, false],
               ] as const
             ).map(([key, label, value, required]) => (
               <label className="flex flex-col gap-1 text-sm text-slate-300" key={key}>
@@ -1173,7 +1192,7 @@ export function StockManagementContent() {
             <label className="flex flex-col gap-1 text-sm text-slate-300">
               Categorie *
               <select
-                className="h-11 rounded-lg border border-white/10 bg-[#0d1433] px-3"
+                className={`${ui.input} rounded-md px-3`}
                 onChange={(e) => setArticleForm((f) => ({ ...f, categoryId: e.target.value }))}
                 required
                 value={articleForm.categoryId}
@@ -1187,13 +1206,13 @@ export function StockManagementContent() {
               </select>
             </label>
             <label className="flex flex-col gap-1 text-sm text-slate-300">
-              Emplacement
+              {KYC_UI.LOCATION}
               <select
-                className="h-11 rounded-lg border border-white/10 bg-[#0d1433] px-3"
+                className={`${ui.input} rounded-md px-3`}
                 onChange={(e) => setArticleForm((f) => ({ ...f, locationId: e.target.value }))}
                 value={articleForm.locationId}
               >
-                <option value="">Non localise</option>
+                <option value="">{KYC_UI.ALL}</option>
                 {data.locations.map((l) => (
                   <option key={l.id} value={l.id}>
                     {l.name}
@@ -1202,9 +1221,9 @@ export function StockManagementContent() {
               </select>
             </label>
             <label className="flex flex-col gap-1 text-sm text-slate-300">
-              Fournisseur
+              {KYC_IN_STORE_COLUMNS.VENDOR}
               <select
-                className="h-11 rounded-lg border border-white/10 bg-[#0d1433] px-3"
+                className={`${ui.input} rounded-md px-3`}
                 onChange={(e) => setArticleForm((f) => ({ ...f, supplierId: e.target.value }))}
                 value={articleForm.supplierId}
               >
@@ -1217,9 +1236,9 @@ export function StockManagementContent() {
               </select>
             </label>
             <label className="flex flex-col gap-1 text-sm text-slate-300">
-              Etat materiel
+              {KYC_IN_STORE_COLUMNS.CONDITION}
               <select
-                className="h-11 rounded-lg border border-white/10 bg-[#0d1433] px-3"
+                className={`${ui.input} rounded-md px-3`}
                 onChange={(e) => setArticleForm((f) => ({ ...f, condition: e.target.value }))}
                 value={articleForm.condition}
               >
@@ -1231,9 +1250,9 @@ export function StockManagementContent() {
               </select>
             </label>
             <label className="flex flex-col gap-1 text-sm text-slate-300">
-              Statut operationnel
+              {KYC_UI.STATUS}
               <select
-                className="h-11 rounded-lg border border-white/10 bg-[#0d1433] px-3"
+                className={`${ui.input} rounded-md px-3`}
                 onChange={(e) => setArticleForm((f) => ({ ...f, status: e.target.value }))}
                 value={articleForm.status}
               >
@@ -1268,11 +1287,11 @@ export function StockManagementContent() {
           </div>
           <div className="shrink-0 border-t border-white/10 px-6 py-4">
             <Button
-              className="w-full bg-[#ff2f45] sm:w-auto"
+              className={`w-full sm:w-auto ${ui.btnPrimary}`}
               form="article-stock-form"
               type="submit"
             >
-              {editingArticleId ? "Enregistrer" : "Creer l'article"}
+              {editingArticleId ? "Enregistrer" : `Creer ${KYC_IN_STORE_COLUMNS.ITEM}`}
             </Button>
           </div>
         </DialogContent>
@@ -1284,21 +1303,23 @@ export function StockManagementContent() {
             <DialogTitle>Mouvement de stock</DialogTitle>
           </DialogHeader>
           <form className="grid gap-3" onSubmit={handleMovementSubmit}>
-            <select
-              className="h-11 rounded-lg border border-white/10 bg-[#0d1433] px-3"
-              onChange={(e) => setMovementForm((f) => ({ ...f, assetId: e.target.value }))}
+            <AssetSearchSelect
+              assets={data.assets.map((a) => ({
+                id: a.id,
+                sku: a.sku,
+                name: a.name,
+                serialNumber: a.serialNumber,
+                model: a.model,
+              }))}
+              label={KYC_UI.DESCRIPTION}
+              onValueChange={(assetId) =>
+                setMovementForm((f) => ({ ...f, assetId }))
+              }
               required
               value={movementForm.assetId}
-            >
-              <option value="">Article</option>
-              {data.assets.map((a) => (
-                <option key={a.id} value={a.id}>
-                  {a.sku} - {a.name} ({a.quantityOnHand})
-                </option>
-              ))}
-            </select>
+            />
             <select
-              className="h-11 rounded-lg border border-white/10 bg-[#0d1433] px-3"
+              className={`${ui.input} rounded-md px-3`}
               onChange={(e) => setMovementForm((f) => ({ ...f, type: e.target.value }))}
               value={movementForm.type}
             >
@@ -1315,7 +1336,7 @@ export function StockManagementContent() {
               value={movementForm.quantity}
             />
             <select
-              className="h-11 rounded-lg border border-white/10 bg-[#0d1433] px-3"
+              className={`${ui.input} rounded-md px-3`}
               onChange={(e) =>
                 setMovementForm((f) => ({ ...f, fromLocationId: e.target.value }))
               }
@@ -1329,7 +1350,7 @@ export function StockManagementContent() {
               ))}
             </select>
             <select
-              className="h-11 rounded-lg border border-white/10 bg-[#0d1433] px-3"
+              className={`${ui.input} rounded-md px-3`}
               onChange={(e) => setMovementForm((f) => ({ ...f, toLocationId: e.target.value }))}
               value={movementForm.toLocationId}
             >
@@ -1345,7 +1366,7 @@ export function StockManagementContent() {
               placeholder="Motif"
               value={movementForm.reason}
             />
-            <Button className="bg-[#ff2f45]" type="submit">
+            <Button className={ui.btnPrimary} type="submit">
               Valider mouvement
             </Button>
           </form>
@@ -1382,7 +1403,7 @@ export function StockManagementContent() {
               placeholder="Telephone"
               value={supplierForm.phone}
             />
-            <Button className="bg-[#ff2f45]" type="submit">
+            <Button className={ui.btnPrimary} type="submit">
               Enregistrer
             </Button>
           </form>
@@ -1420,10 +1441,10 @@ export function StockManagementContent() {
       >
         <DialogContent className="!flex max-h-[min(90vh,40rem)] w-[min(calc(100vw-2rem),52rem)] max-w-none flex-col gap-0 overflow-hidden border-white/10 bg-[#11183b] p-0 text-white sm:max-w-none">
           <DialogHeader className="shrink-0 border-b border-white/10 px-6 py-4">
-            <DialogTitle>Tracabilite article</DialogTitle>
+            <DialogTitle>Tracabilite {KYC_IN_STORE_COLUMNS.ITEM}</DialogTitle>
             <DialogDescription className="text-slate-400">
               {traceData?.asset.name ?? "Chargement..."} ·{" "}
-              <Link className="text-[#6fb6ff] hover:underline" href="/historique">
+              <Link className="text-slate-400 hover:underline" href="/historique">
                 Historique complet
               </Link>
             </DialogDescription>
@@ -1434,7 +1455,7 @@ export function StockManagementContent() {
             ) : (
               <div className="space-y-6">
                 <div>
-                  <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-[#6fb6ff]">
+                  <h3 className={`${ui.eyebrow} mb-2`}>
                     Mouvements de stock
                   </h3>
                   {traceData.movements.length === 0 ? (
@@ -1443,7 +1464,7 @@ export function StockManagementContent() {
                     <ul className="space-y-2">
                       {traceData.movements.map((m) => (
                         <li
-                          className="rounded-lg border border-white/10 bg-white/6 px-3 py-2 text-sm"
+                          className="rounded-md border border-white/10 bg-slate-900/50 px-3 py-2 text-sm"
                           key={m.id}
                         >
                           <span className="font-medium">{m.typeLabel}</span> · qte{" "}
@@ -1455,7 +1476,7 @@ export function StockManagementContent() {
                   )}
                 </div>
                 <div>
-                  <h3 className="mb-2 text-sm font-bold uppercase tracking-wider text-[#6fb6ff]">
+                  <h3 className={`${ui.eyebrow} mb-2`}>
                     Journal d&apos;audit
                   </h3>
                   {traceData.auditTrail.length === 0 ? (
@@ -1464,7 +1485,7 @@ export function StockManagementContent() {
                     <ul className="space-y-2">
                       {traceData.auditTrail.map((log) => (
                         <li
-                          className="rounded-lg border border-white/10 bg-white/6 px-3 py-2 text-sm"
+                          className="rounded-md border border-white/10 bg-slate-900/50 px-3 py-2 text-sm"
                           key={log.id}
                         >
                           <span className="font-mono text-xs text-slate-400">

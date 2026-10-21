@@ -12,6 +12,7 @@ import {
 import { AssetImageThumb } from "@/components/asset-image-thumb";
 import { Button } from "@/components/ui/button";
 import { validateAssetImageFile } from "@/lib/asset-image-upload";
+import { KYC_IN_STORE_COLUMNS, KYC_UI } from "@/lib/kyc-excel/terminology";
 import { cn } from "@/lib/utils";
 
 type AssetImageUploadProps = {
@@ -156,7 +157,7 @@ export function AssetImageUpload({
 
         <div className="min-w-0 flex-1 space-y-3">
           <div>
-            <p className="text-sm font-medium text-white">Photo du materiel</p>
+            <p className="text-sm font-medium text-white">{KYC_UI.PHOTO} — {KYC_IN_STORE_COLUMNS.ITEM}</p>
             <p className="text-xs text-slate-400">
               Glissez-deposez une image ou cliquez pour parcourir (JPG, PNG, WebP,
               GIF — max 5 Mo).

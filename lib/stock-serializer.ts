@@ -33,6 +33,13 @@ type AssetWithRelations = {
   sku: string;
   status: string;
   unit: string;
+  systemOs: string | null;
+  storageRam: string | null;
+  ownerLabel: string | null;
+  custodianName: string | null;
+  workstationCode: string | null;
+  processLabel: string | null;
+  assetGroup: string | null;
   updatedAt: Date;
   warrantyUntil: Date | null;
 };
@@ -57,6 +64,13 @@ export function serializeAsset(asset: AssetWithRelations) {
     brand: asset.brand,
     model: asset.model,
     imageUrl: asset.imageUrl,
+    systemOs: asset.systemOs,
+    storageRam: asset.storageRam,
+    ownerLabel: asset.ownerLabel,
+    custodianName: asset.custodianName,
+    workstationCode: asset.workstationCode,
+    processLabel: asset.processLabel,
+    assetGroup: asset.assetGroup,
     category: asset.category.name,
     categoryId: asset.category.id,
     location: asset.location?.name ?? "Non localise",
@@ -75,8 +89,10 @@ export function serializeAsset(asset: AssetWithRelations) {
     stockStatus,
     stockStatusLabel: getStockLevelLabel(stockStatus),
     assignedTo:
+      asset.custodianName ??
       currentAssignment?.assignedTo?.name ??
       currentAssignment?.department?.name ??
+      asset.ownerLabel ??
       "Stock IT",
     openIncident: openIncident?.reference ?? null,
     value: asset.purchaseValue ? `$${asset.purchaseValue.toString()}` : "-",

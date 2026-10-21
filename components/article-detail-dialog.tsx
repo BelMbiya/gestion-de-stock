@@ -16,6 +16,13 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
+import {
+  KYC_IN_STORE_COLUMNS,
+  KYC_OTHER_ASSETS_COLUMNS,
+  KYC_SHEET_LABELS,
+  KYC_UI,
+} from "@/lib/kyc-excel/terminology";
+
 export type ArticleDetailData = {
   id: string;
   sku: string;
@@ -43,6 +50,13 @@ export type ArticleDetailData = {
   purchaseValue: string;
   purchaseDate: string;
   warrantyUntil: string;
+  systemOs?: string | null;
+  storageRam?: string | null;
+  ownerLabel?: string | null;
+  custodianName?: string | null;
+  workstationCode?: string | null;
+  processLabel?: string | null;
+  assetGroup?: string | null;
   createdAt?: string;
   updatedAt?: string;
 };
@@ -143,21 +157,34 @@ export function ArticleDetailDialog({
               Identification
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
-              <DetailField label="Code-barres" value={asset.barcode} />
-              <DetailField label="N° serie" value={asset.serialNumber} />
-              <DetailField label="Marque" value={asset.brand} />
-              <DetailField label="Modele" value={asset.model} />
-              <DetailField label="Categorie" value={asset.category} />
+              <DetailField label={KYC_UI.BARCODE} value={asset.barcode} />
+              <DetailField label={KYC_UI.SERIAL_NUMBER} value={asset.serialNumber} />
+              <DetailField label={KYC_OTHER_ASSETS_COLUMNS.BRAND} value={asset.brand} />
+              <DetailField label={KYC_UI.MODEL} value={asset.model} />
+              <DetailField label={KYC_UI.CATEGORY} value={asset.category} />
+              <DetailField label={KYC_UI.GROUP} value={asset.assetGroup} />
+              <DetailField label={KYC_UI.WORK_STATION} value={asset.workstationCode} />
+              <DetailField label={KYC_UI.PROCESS} value={asset.processLabel} />
             </div>
           </section>
 
           <section className="mb-5">
-            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#6fb6ff]">
-              Stock
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              Configuration
+            </h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <DetailField label={KYC_UI.SYSTEM} value={asset.systemOs} />
+              <DetailField label={KYC_UI.HDD_RAM} value={asset.storageRam} />
+            </div>
+          </section>
+
+          <section className="mb-5">
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              {KYC_SHEET_LABELS.IN_STORE}
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
               <DetailField
-                label="Quantite en stock"
+                label={KYC_IN_STORE_COLUMNS.NUMBER}
                 value={`${asset.quantityOnHand} ${asset.unit}`}
               />
               <DetailField label="Stock minimum" value={String(asset.minQuantity)} />
@@ -175,28 +202,32 @@ export function ArticleDetailDialog({
           </section>
 
           <section className="mb-5">
-            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#6fb6ff]">
-              Localisation et fournisseur
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
+              {KYC_UI.LOCATION} & {KYC_IN_STORE_COLUMNS.VENDOR}
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
-              <DetailField label="Emplacement" value={asset.location} />
-              <DetailField label="Fournisseur" value={asset.supplier} />
-              <DetailField label="Affecte a" value={asset.assignedTo} />
+              <DetailField label={KYC_UI.LOCATION} value={asset.location} />
+              <DetailField label={KYC_IN_STORE_COLUMNS.VENDOR} value={asset.supplier} />
+              <DetailField label={KYC_UI.OWNER} value={asset.ownerLabel} />
+              <DetailField
+                label={KYC_UI.DESIGNATED_CUSTODIAN}
+                value={asset.custodianName ?? asset.assignedTo}
+              />
             </div>
           </section>
 
           <section className="mb-5">
-            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-[#6fb6ff]">
+            <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
               Valeur et dates
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
-              <DetailField label="Valeur estimee" value={asset.value} />
+              <DetailField label={KYC_UI.ASSET_VALUE} value={asset.value} />
               <DetailField
-                label="Prix d'achat (USD)"
+                label={KYC_UI.PURCHASE_PRICE}
                 value={asset.purchaseValue ? `$${asset.purchaseValue}` : null}
               />
-              <DetailField label="Date d'achat" value={asset.purchaseDate} />
-              <DetailField label="Fin de garantie" value={asset.warrantyUntil} />
+              <DetailField label={KYC_UI.PURCHASE_DATE} value={asset.purchaseDate} />
+              <DetailField label={KYC_UI.WARRANTY_UNTIL} value={asset.warrantyUntil} />
             </div>
           </section>
 
@@ -207,7 +238,7 @@ export function ArticleDetailDialog({
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="min-w-0">
                 <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
-                  Panne ouverte
+                  {KYC_UI.OPEN_INCIDENT}
                 </p>
                 {asset.openIncident ? (
                   <div className="mt-0.5 flex items-center gap-1">
@@ -225,10 +256,10 @@ export function ArticleDetailDialog({
                 )}
               </div>
               {asset.createdAt ? (
-                <DetailField label="Cree le" value={asset.createdAt} />
+                <DetailField label={KYC_UI.CREATED_AT} value={asset.createdAt} />
               ) : null}
               {asset.updatedAt ? (
-                <DetailField label="Modifie le" value={asset.updatedAt} />
+                <DetailField label={KYC_UI.UPDATED_AT} value={asset.updatedAt} />
               ) : null}
             </div>
           </section>

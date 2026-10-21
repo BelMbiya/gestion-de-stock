@@ -2,9 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MovementsContent } from "@/components/movements-content";
+import { selectKycAsset } from "@/test/helpers/select-kyc-asset";
 
 const movementsPayload = {
-  assets: [{ id: "asset-1", name: "Cisco ISR 4331" }],
+  assets: [{ id: "asset-1", name: "Cisco ISR 4331", sku: "IT-RTR-015" }],
   locations: [
     { id: "location-1", name: "Site Mining A" },
     { id: "location-2", name: "Datacenter Kinshasa" },
@@ -45,9 +46,7 @@ describe("MovementsContent", () => {
 
     expect(await screen.findByText("Transfert maintenance")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Ajouter un mouvement" }));
-    fireEvent.change(screen.getByDisplayValue("Materiel"), {
-      target: { value: "asset-1" },
-    });
+    selectKycAsset("DESCRIPTION", "Cisco ISR 4331");
     fireEvent.change(screen.getByDisplayValue("Ajustement"), {
       target: { value: "TRANSFER" },
     });

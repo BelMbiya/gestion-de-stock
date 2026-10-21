@@ -4,6 +4,7 @@ import { Activity, Clock, MapPin, Search, Trash2, UserRound } from "lucide-react
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { CopyReferenceButton } from "@/components/copy-reference-button";
+import { AssetSearchSelect } from "@/components/asset-search-select";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,8 @@ import {
   incidentSeverityOptions,
   incidentStatusOptions,
 } from "@/lib/incident-serializer";
+import { KYC_UI } from "@/lib/kyc-excel/terminology";
+import { ui } from "@/lib/ui-styles";
 
 type IncidentUpdate = {
   id: string;
@@ -67,6 +70,8 @@ type ReferenceItem = {
   email?: string;
   name: string;
   sku?: string;
+  serialNumber?: string | null;
+  model?: string | null;
 };
 
 const periodOptions = [
@@ -147,9 +152,7 @@ function SeverityBadge({ severity }: { severity: string }) {
   return (
     <Badge
       className={
-        isHigh
-          ? "bg-[#ff2f45]/20 text-[#ff7b88]"
-          : "bg-white/10 text-slate-200"
+        isHigh ? "bg-red-900/40 text-red-200" : "bg-slate-800 text-slate-300"
       }
     >
       {severity}
@@ -258,7 +261,7 @@ export function IncidentsContent() {
     const parts = [
       `Genere le ${new Date().toLocaleString("fr-FR")}`,
       `${filteredIncidents.length} panne(s)`,
-      selectedAsset ? `Materiel: ${selectedAsset.name}` : "Materiel: tous",
+      selectedAsset ? `${KYC_UI.DESCRIPTION}: ${selectedAsset.name}` : `${KYC_UI.DESCRIPTION}: ${KYC_UI.ALL}`,
       selectedAssignee
         ? `Technicien: ${selectedAssignee.name}`
         : "Technicien: tous",
@@ -361,34 +364,30 @@ export function IncidentsContent() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-3 text-white">
-        <header className="flex shrink-0 flex-col gap-3 rounded-[2rem] border border-white/10 bg-white/6 p-4 shadow-2xl shadow-black/30 xl:flex-row xl:items-center xl:justify-between">
+    <section className={ui.page}>
+        <header className={`${ui.header} shrink-0 xl:flex xl:items-center xl:justify-between`}>
           <div>
-            <p className="text-xs font-bold uppercase tracking-[0.35em] text-[#6fb6ff]">
-              Pannes
-            </p>
-            <h1 className="mt-1 text-2xl font-black">
-              Suivi de resolution materiel
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm text-slate-300">
-              Suivez chaque panne depuis son identification jusqu&apos;a sa
-              resolution, avec technicien, criticite, progression et historique.
+            <p className={ui.eyebrow}>{KYC_UI.INCIDENT}</p>
+            <h1 className={ui.title}>{KYC_UI.INCIDENT} — {KYC_UI.STATUS}</h1>
+            <p className={`${ui.subtitle} mt-1 max-w-2xl`}>
+              {KYC_UI.REFERENCE}, {KYC_UI.DESCRIPTION}, {KYC_UI.TECHNICIAN}, {KYC_UI.SEVERITY}{" "}
+              & {KYC_UI.PROGRESS}.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="mt-3 flex flex-wrap items-center gap-2 xl:mt-0">
             <ExportPdfButton
               disabled={isLoading}
               filename="suivi-pannes"
               sections={[
                 {
                   columns: [
-                    "Reference",
+                    KYC_UI.REFERENCE,
                     "Titre",
-                    "Materiel",
-                    "Technicien",
-                    "Criticite",
-                    "Statut",
-                    "Progression",
+                    KYC_UI.DESCRIPTION,
+                    KYC_UI.TECHNICIAN,
+                    KYC_UI.SEVERITY,
+                    KYC_UI.STATUS,
+                    KYC_UI.PROGRESS,
                   ],
                   rows: filteredIncidents.map((incident) => [
                     incident.reference,
@@ -405,7 +404,7 @@ export function IncidentsContent() {
               title="Suivi des pannes IT"
             />
             <Button
-              className="w-fit bg-[#ff2f45] text-white hover:bg-[#ff4b5e]"
+              className={ui.btnPrimary}
               onClick={() => {
                 setEditingIncidentId(null);
                 setForm(emptyForm);
@@ -418,36 +417,26 @@ export function IncidentsContent() {
           </div>
         </header>
 
-        <Card className="shrink-0 border-white/10 bg-[#11183b]/95 text-white ring-0">
-          <CardHeader className="gap-1 px-4 py-3">
-            <CardTitle className="text-sm font-bold">Filtres d&apos;exportation</CardTitle>
-            <CardDescription className="text-xs text-slate-400">
+        <Card className={`${ui.panel} shrink-0 ring-0`}>
+          <CardHeader className={`${ui.panelHeader} gap-1`}>
+            <CardTitle className="text-sm font-semibold">Filtres d&apos;exportation</CardTitle>
+            <CardDescription className={ui.subtitle}>
               Liste et export PDF
             </CardDescription>
           </CardHeader>
-          <CardContent className="grid gap-2 px-4 pb-4 pt-0 md:grid-cols-2 xl:grid-cols-4">
-            <label className="flex flex-col gap-1 text-xs text-slate-300">
-              Materiel
-              <select
-                aria-label="Materiel"
-                className="h-9 rounded-lg border border-white/10 bg-[#0d1433] px-2.5 text-sm text-white"
-                onChange={(event) => setSelectedAssetId(event.target.value)}
-                value={selectedAssetId}
-              >
-                <option value="">Tous les materiels</option>
-                {assets.map((asset) => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.sku ? `${asset.sku} - ` : ""}
-                    {asset.name}
-                  </option>
-                ))}
-              </select>
-            </label>
+          <CardContent className={`${ui.panelBody} grid gap-2 pt-0 md:grid-cols-2 xl:grid-cols-4`}>
+            <AssetSearchSelect
+              assets={assets}
+              emptyLabel={`${KYC_UI.ALL} — ${KYC_UI.DESCRIPTION}`}
+              label={KYC_UI.DESCRIPTION}
+              onValueChange={setSelectedAssetId}
+              value={selectedAssetId}
+            />
             <label className="flex flex-col gap-1 text-xs text-slate-300">
               Technicien
               <select
                 aria-label="Technicien filtre"
-                className="h-9 rounded-lg border border-white/10 bg-[#0d1433] px-2.5 text-sm text-white"
+                className={`${ui.input} px-2.5 text-sm text-white`}
                 onChange={(event) => setSelectedAssigneeId(event.target.value)}
                 value={selectedAssigneeId}
               >
@@ -463,7 +452,7 @@ export function IncidentsContent() {
               Criticite
               <select
                 aria-label="Criticite"
-                className="h-9 rounded-lg border border-white/10 bg-[#0d1433] px-2.5 text-sm text-white"
+                className={`${ui.input} px-2.5 text-sm text-white`}
                 onChange={(event) => setSelectedSeverity(event.target.value)}
                 value={selectedSeverity}
               >
@@ -478,7 +467,7 @@ export function IncidentsContent() {
               Statut
               <select
                 aria-label="Statut filtre"
-                className="h-9 rounded-lg border border-white/10 bg-[#0d1433] px-2.5 text-sm text-white"
+                className={`${ui.input} px-2.5 text-sm text-white`}
                 onChange={(event) => setSelectedStatus(event.target.value)}
                 value={selectedStatus}
               >
@@ -493,7 +482,7 @@ export function IncidentsContent() {
               Periode
               <select
                 aria-label="Periode"
-                className="h-9 rounded-lg border border-white/10 bg-[#0d1433] px-2.5 text-sm text-white"
+                className={`${ui.input} px-2.5 text-sm text-white`}
                 onChange={(event) => {
                   setPeriod(event.target.value);
                   if (event.target.value) {
@@ -513,7 +502,7 @@ export function IncidentsContent() {
               Date precise
               <Input
                 aria-label="Date precise"
-                className="h-9 border-white/10 bg-[#0d1433] text-sm text-white"
+                className={`${ui.input} text-sm text-white`}
                 onChange={(event) => {
                   setSpecificDate(event.target.value);
                   if (event.target.value) {
@@ -530,7 +519,7 @@ export function IncidentsContent() {
               Debut intervalle
               <Input
                 aria-label="Debut intervalle"
-                className="h-9 border-white/10 bg-[#0d1433] text-sm text-white"
+                className={`${ui.input} text-sm text-white`}
                 disabled={Boolean(specificDate)}
                 onChange={(event) => setStartDate(event.target.value)}
                 type="date"
@@ -541,7 +530,7 @@ export function IncidentsContent() {
               Fin intervalle
               <Input
                 aria-label="Fin intervalle"
-                className="h-9 border-white/10 bg-[#0d1433] text-sm text-white"
+                className={`${ui.input} text-sm text-white`}
                 disabled={Boolean(specificDate)}
                 onChange={(event) => setEndDate(event.target.value)}
                 type="date"
@@ -552,11 +541,11 @@ export function IncidentsContent() {
         </Card>
 
         <div className="relative shrink-0">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
           <Input
-            className="h-9 border-white/10 bg-white/6 pl-10 text-sm text-white"
+            className={`${ui.input} pl-9 text-sm text-white`}
             onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Rechercher par reference, materiel, technicien, statut..."
+            placeholder={`${KYC_UI.REFERENCE}, ${KYC_UI.DESCRIPTION}, ${KYC_UI.TECHNICIAN}, ${KYC_UI.STATUS}…`}
             value={searchQuery}
           />
         </div>
@@ -596,21 +585,15 @@ export function IncidentsContent() {
                 required
                 value={form.title}
               />
-              <select
-                className="h-10 rounded-lg border border-white/10 bg-[#11183b] px-3 text-sm text-white"
-                onChange={(event) =>
-                  setForm((value) => ({ ...value, assetId: event.target.value }))
+              <AssetSearchSelect
+                assets={assets}
+                label={KYC_UI.DESCRIPTION}
+                onValueChange={(assetId) =>
+                  setForm((value) => ({ ...value, assetId }))
                 }
                 required
                 value={form.assetId}
-              >
-                <option value="">Materiel</option>
-                {assets.map((asset) => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.name}
-                  </option>
-                ))}
-              </select>
+              />
               <select
                 className="h-10 rounded-lg border border-white/10 bg-[#11183b] px-3 text-sm text-white"
                 onChange={(event) =>
@@ -671,14 +654,14 @@ export function IncidentsContent() {
               />
               <div className="flex gap-2 md:col-span-2">
                 <Button
-                  className="flex-1 bg-[#ff2f45] text-white hover:bg-[#ff4b5e]"
+                  className={`flex-1 ${ui.btnPrimary}`}
                   type="submit"
                 >
                   {editingIncidentId ? "Enregistrer" : "Declarer"}
                 </Button>
                 {editingIncidentId ? (
                   <Button
-                    className="border border-[#ff2f45]/40 bg-[#ff2f45]/20 text-[#ff9aa5] hover:bg-[#ff2f45]/30"
+                    className="bg-red-900/30 text-red-200 hover:bg-red-900/50"
                     onClick={async () => {
                       await handleDelete(editingIncidentId);
                       setEditingIncidentId(null);
@@ -693,7 +676,7 @@ export function IncidentsContent() {
                 ) : null}
                 {editingIncidentId ? (
                   <Button
-                    className="bg-white/10 text-white hover:bg-white/15"
+                    className={ui.btnSecondary}
                     onClick={() => {
                       setEditingIncidentId(null);
                       setForm(emptyForm);
@@ -711,65 +694,66 @@ export function IncidentsContent() {
 
         <div className="flex min-h-0 flex-1 flex-col">
           {error ? (
-            <Card className="mb-3 shrink-0 border-[#ff2f45]/30 bg-[#ff2f45]/10 text-white ring-0">
-              <CardContent className="p-4 text-sm">{error}</CardContent>
+            <Card className={`${ui.panel} mb-3 shrink-0 border-red-900/40 ring-0`}>
+              <CardContent className={`${ui.panelBody} text-sm text-red-200`}>{error}</CardContent>
             </Card>
           ) : null}
 
-          <Card className="flex min-h-0 flex-1 flex-col border-white/10 bg-[#11183b]/95 text-white ring-0">
-            <CardContent className="min-h-0 flex-1 overflow-x-auto overflow-y-auto p-3 [scrollbar-gutter:stable]">
+          <Card className={`${ui.panel} ${ui.tablePanel} ring-0`}>
+            <CardContent className={ui.tablePanelBody}>
               {isLoading ? (
-                <p className="rounded-xl bg-white/6 p-4 text-sm text-slate-300">
+                <p className="rounded-md bg-slate-800/50 p-4 text-sm text-slate-400">
                   Chargement des pannes...
                 </p>
               ) : filteredIncidents.length === 0 ? (
-                <p className="rounded-xl bg-white/6 p-4 text-sm text-slate-300">
+                <p className="rounded-md bg-slate-800/50 p-4 text-sm text-slate-400">
                   Aucune panne pour les filtres selectionnes.
                 </p>
               ) : (
+              <div className={ui.tableWrap}>
               <Table className="table-fixed">
-                <TableHeader className="sticky top-0 z-10 bg-[#11183b]">
+                <TableHeader>
                   <TableRow className="border-white/10 hover:bg-transparent">
-                    <TableHead className="w-[24%] text-slate-400">Panne</TableHead>
-                    <TableHead className="w-[18%] text-slate-400">Materiel</TableHead>
-                    <TableHead className="w-[16%] text-slate-400">Technicien</TableHead>
-                    <TableHead className="w-[10%] text-slate-400">Criticite</TableHead>
-                    <TableHead className="w-[16%] text-slate-400">Progression</TableHead>
-                    <TableHead className="w-[8%] text-slate-400">Actions</TableHead>
+                    <TableHead className="w-[24%] text-xs text-slate-500">Panne</TableHead>
+                    <TableHead className="w-[18%] text-xs text-slate-500">{KYC_UI.DESCRIPTION}</TableHead>
+                    <TableHead className="w-[16%] text-xs text-slate-500">Technicien</TableHead>
+                    <TableHead className="w-[10%] text-xs text-slate-500">Criticite</TableHead>
+                    <TableHead className="w-[16%] text-xs text-slate-500">Progression</TableHead>
+                    <TableHead className="w-[8%] text-xs text-slate-500">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredIncidents.map((incident) => (
-                    <TableRow className="border-white/6 hover:bg-white/5" key={incident.id}>
+                    <TableRow className="border-white/6" key={incident.id}>
                       <TableCell className="whitespace-normal break-words align-top">
                         <span className="inline-flex items-center gap-1.5">
-                          <p className="font-mono text-xs text-[#6fb6ff]">
+                          <p className="font-mono text-xs text-slate-400">
                             {incident.reference}
                           </p>
                           <CopyReferenceButton value={incident.reference} />
                         </span>
-                        <p className="mt-1 font-black text-white">{incident.title}</p>
-                        <p className="mt-2 text-xs leading-5 text-slate-300">
+                        <p className="mt-1 font-medium text-white">{incident.title}</p>
+                        <p className="mt-2 text-xs leading-5 text-slate-400">
                           {incident.description ?? "Aucune description."}
                         </p>
                       </TableCell>
                       <TableCell className="whitespace-normal break-words align-top text-slate-300">
                         <span className="flex items-start gap-2">
-                          <Activity className="size-4 text-[#ff2f45]" />
+                          <Activity className="size-4 text-slate-500" />
                           <span>{incident.asset}</span>
                         </span>
-                        <span className="mt-2 flex items-start gap-2 text-[#8cc6ff]">
-                          <MapPin className="size-4 text-[#6fb6ff]" />
+                        <span className="mt-2 flex items-start gap-2 text-slate-400">
+                          <MapPin className="size-4 text-slate-500" />
                           <span>{incident.location}</span>
                         </span>
                       </TableCell>
                       <TableCell className="whitespace-normal break-words align-top text-slate-300">
                         <span className="flex items-start gap-2">
-                          <UserRound className="size-4 text-[#6fb6ff]" />
+                          <UserRound className="size-4 text-slate-500" />
                           <span>{incident.assignee}</span>
                         </span>
-                        <span className="mt-2 flex items-start gap-2 text-xs">
-                          <Clock className="size-4 text-[#6fb6ff]" />
+                        <span className="mt-2 flex items-start gap-2 text-xs text-slate-400">
+                          <Clock className="size-4 text-slate-500" />
                           <span>{incident.identifiedAt}</span>
                         </span>
                       </TableCell>
@@ -777,30 +761,26 @@ export function IncidentsContent() {
                         <SeverityBadge severity={incident.severity} />
                       </TableCell>
                       <TableCell className="align-top">
-                        <div className="mb-2 flex items-start justify-between gap-2 text-[0.65rem] text-slate-400">
+                        <div className="mb-2 flex items-start justify-between gap-2 text-[0.65rem] text-slate-500">
                           <span className="break-words leading-4">{incident.status}</span>
                           <span>{incident.progress}%</span>
                         </div>
                         <Progress
-                          className={
-                            incident.progress >= 100
-                              ? "[&_[data-slot=progress-indicator]]:bg-gradient-to-r [&_[data-slot=progress-indicator]]:from-emerald-400 [&_[data-slot=progress-indicator]]:to-green-500 [&_[data-slot=progress-indicator]]:transition-all [&_[data-slot=progress-indicator]]:duration-700 [&_[data-slot=progress-track]]:h-2 [&_[data-slot=progress-track]]:bg-white/10"
-                              : "[&_[data-slot=progress-indicator]]:bg-gradient-to-r [&_[data-slot=progress-indicator]]:from-[#6fb6ff] [&_[data-slot=progress-indicator]]:to-[#ff2f45] [&_[data-slot=progress-indicator]]:transition-all [&_[data-slot=progress-indicator]]:duration-700 [&_[data-slot=progress-track]]:h-2 [&_[data-slot=progress-track]]:bg-white/10"
-                          }
+                          className="[&_[data-slot=progress-indicator]]:bg-red-600 [&_[data-slot=progress-track]]:h-2 [&_[data-slot=progress-track]]:bg-white/10"
                           value={incident.progress}
                         />
                       </TableCell>
                       <TableCell className="align-top">
                         <div className="flex flex-col gap-2">
                           <Button
-                            className="h-8 px-2 text-xs bg-white/10 text-white hover:bg-white/15"
+                            className={`h-8 px-2 text-xs ${ui.btnSecondary}`}
                             onClick={() => handleEdit(incident)}
                             type="button"
                           >
                             Modifier
                           </Button>
                           <Button
-                            className="h-8 px-2 text-xs border border-[#ff2f45]/40 bg-[#ff2f45]/20 text-[#ff9aa5] hover:bg-[#ff2f45]/30"
+                            className="h-8 bg-red-900/30 px-2 text-xs text-red-200 hover:bg-red-900/50"
                             onClick={() => handleDelete(incident.id)}
                             type="button"
                             title="Supprimer la panne"
@@ -813,6 +793,7 @@ export function IncidentsContent() {
                   ))}
                 </TableBody>
               </Table>
+              </div>
               )}
             </CardContent>
           </Card>

@@ -2,6 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { StockManagementContent } from "@/components/stock-management-content";
+import { KYC_IN_STORE_COLUMNS, KYC_UI } from "@/lib/kyc-excel/terminology";
+import { selectKycAsset } from "@/test/helpers/select-kyc-asset";
 
 const stockPayload = {
   summary: {
@@ -219,20 +221,20 @@ describe("StockManagementContent", () => {
     render(<StockManagementContent />);
 
     await screen.findByText("Dell Latitude 7420");
-    fireEvent.click(screen.getByRole("button", { name: "Nouvel article" }));
-    fireEvent.change(screen.getByLabelText("SKU *"), {
+    fireEvent.click(screen.getByRole("button", { name: `Nouvel ${KYC_IN_STORE_COLUMNS.ITEM}` }));
+    fireEvent.change(screen.getByLabelText(`${KYC_UI.NO} *`), {
       target: { value: "IT-KEY-001" },
     });
-    fireEvent.change(screen.getByLabelText("Designation *"), {
+    fireEvent.change(screen.getByLabelText(`${KYC_UI.DESCRIPTION} *`), {
       target: { value: "Clavier mecanique" },
     });
-    fireEvent.change(screen.getByLabelText("Quantite en stock *"), {
+    fireEvent.change(screen.getByLabelText(`${KYC_IN_STORE_COLUMNS.NUMBER} *`), {
       target: { value: "25" },
     });
     fireEvent.change(screen.getByLabelText("Categorie *"), {
       target: { value: "category-1" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Creer l'article" }));
+    fireEvent.click(screen.getByRole("button", { name: `Creer ${KYC_IN_STORE_COLUMNS.ITEM}` }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -247,7 +249,7 @@ describe("StockManagementContent", () => {
 
     await screen.findByText("Dell Latitude 7420");
     fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
-    fireEvent.change(screen.getByLabelText("Designation *"), {
+    fireEvent.change(screen.getByLabelText(`${KYC_UI.DESCRIPTION} *`), {
       target: { value: "Dell Latitude 7420 Pro" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
@@ -279,7 +281,7 @@ describe("StockManagementContent", () => {
     await screen.findByText("Dell Latitude 7420");
     fireEvent.click(screen.getByRole("button", { name: "Trace" }));
 
-    expect(await screen.findByText("Tracabilite article")).toBeInTheDocument();
+    expect(await screen.findByText(`Tracabilite ${KYC_IN_STORE_COLUMNS.ITEM}`)).toBeInTheDocument();
     expect(await screen.findByText("Entree stock")).toBeInTheDocument();
     expect(fetchMock).toHaveBeenCalledWith("/api/stock/asset-1/trace", {
       cache: "no-store",
@@ -290,11 +292,9 @@ describe("StockManagementContent", () => {
     render(<StockManagementContent />);
 
     await screen.findByText("Dell Latitude 7420");
-    fireEvent.click(screen.getByRole("button", { name: "Mouvements" }));
+    fireEvent.click(screen.getByRole("button", { name: KYC_UI.MOVEMENTS }));
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer mouvement" }));
-    fireEvent.change(screen.getByDisplayValue("Article"), {
-      target: { value: "asset-1" },
-    });
+    selectKycAsset("DESCRIPTION", "Dell Latitude 7420");
     fireEvent.click(screen.getByRole("button", { name: "Valider mouvement" }));
 
     await waitFor(() => {
@@ -319,7 +319,7 @@ describe("StockManagementContent", () => {
     render(<StockManagementContent />);
 
     await screen.findByText("Dell Latitude 7420");
-    fireEvent.click(screen.getByRole("button", { name: "Inventaire physique" }));
+    fireEvent.click(screen.getByRole("button", { name: KYC_UI.INVENTORY_CHECKS }));
 
     fireEvent.change(
       screen.getByPlaceholderText("Nom de la session (ex. Inventaire Q2 2026)"),
@@ -357,7 +357,7 @@ describe("StockManagementContent", () => {
     render(<StockManagementContent />);
 
     await screen.findByText("Dell Latitude 7420");
-    fireEvent.click(screen.getByRole("button", { name: "Fournisseurs" }));
+    fireEvent.click(screen.getByRole("button", { name: KYC_IN_STORE_COLUMNS.VENDOR }));
     fireEvent.click(screen.getByRole("button", { name: "Ajouter fournisseur" }));
     fireEvent.change(screen.getByPlaceholderText("Code fournisseur *"), {
       target: { value: "NEW-SUP" },
@@ -379,12 +379,10 @@ describe("StockManagementContent", () => {
     render(<StockManagementContent />);
 
     await screen.findByText("Dell Latitude 7420");
-    fireEvent.click(screen.getByRole("button", { name: "Fournisseurs" }));
+    fireEvent.click(screen.getByRole("button", { name: KYC_IN_STORE_COLUMNS.VENDOR }));
 
-    const supplierRow = screen.getByText("PROCO IT Supply").closest("tr");
-    expect(supplierRow).toBeTruthy();
     fireEvent.click(
-      supplierRow!.querySelector('button[class*="bg-white/10"]') as HTMLButtonElement,
+      screen.getByRole("button", { name: "Modifier fournisseur PROC-IT" }),
     );
 
     await screen.findByText("Modifier le fournisseur");

@@ -2,11 +2,12 @@
 
 import {
   FileText,
+  Headphones,
   History,
   LayoutDashboard,
   Package,
-  UserCheck,
   Settings,
+  UserCheck,
   UsersRound,
   Wrench,
 } from "lucide-react";
@@ -17,31 +18,34 @@ import { ReactNode, useEffect, useState } from "react";
 
 import { DashboardUserMenu } from "@/components/dashboard-user-menu";
 import { Badge } from "@/components/ui/badge";
+import { KYC_NAV } from "@/lib/kyc-excel/terminology";
 
 const navItems = [
-  { label: "Tableau de bord", icon: LayoutDashboard, href: "/" },
-  { label: "Gestion stock", icon: Package, href: "/inventory" },
-  { label: "Affectations", icon: UserCheck, href: "/affectations" },
-  { label: "Techniciens", icon: UsersRound, href: "/techniciens" },
-  { label: "Pannes", icon: Wrench, href: "/pannes" },
-  { label: "Historique", icon: History, href: "/historique" },
-  { label: "Rapports", icon: FileText, href: "/rapports" },
-  { label: "Parametres", icon: Settings, href: "/parametres" },
+  { label: KYC_NAV.DASHBOARD, icon: LayoutDashboard, href: "/", badge: null as string | null },
+  { label: KYC_NAV.STOCK, icon: Package, href: "/inventory", badge: "stock" },
+  { label: KYC_NAV.ASSIGNMENTS, icon: UserCheck, href: "/affectations", badge: "assignments" },
+  { label: KYC_NAV.TECHNICIANS, icon: UsersRound, href: "/techniciens", badge: null },
+  { label: KYC_NAV.SUPPORT, icon: Headphones, href: "/assistance", badge: "support" },
+  { label: KYC_NAV.INCIDENTS, icon: Wrench, href: "/pannes", badge: "incidents" },
+  { label: KYC_NAV.HISTORY, icon: History, href: "/historique", badge: null },
+  { label: KYC_NAV.REPORTS, icon: FileText, href: "/rapports", badge: null },
+  { label: KYC_NAV.SETTINGS, icon: Settings, href: "/parametres", badge: null },
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [openIncidents, setOpenIncidents] = useState(0);
+  const [openSupportTickets, setOpenSupportTickets] = useState(0);
   const [assignmentAlerts, setAssignmentAlerts] = useState(0);
   const [stockAlerts, setStockAlerts] = useState(0);
 
   useEffect(() => {
     async function loadNotifications() {
       const response = await fetch("/api/notifications", { cache: "no-store" });
-
       if (response.ok) {
         const data = await response.json();
         setOpenIncidents(data.openIncidents ?? 0);
+        setOpenSupportTickets(data.openSupportTickets ?? 0);
         setAssignmentAlerts(data.assignmentReturnAlerts?.count ?? 0);
         setStockAlerts(data.stockAlerts?.count ?? 0);
       }
@@ -49,7 +53,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
 
     void loadNotifications();
     const interval = window.setInterval(loadNotifications, 30000);
-
     window.addEventListener("focus", loadNotifications);
     window.addEventListener("stock-it:notifications-changed", loadNotifications);
 
@@ -61,81 +64,74 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
   }, [pathname]);
 
   return (
-    <main className="h-screen w-screen overflow-hidden bg-[#141044] p-4 text-white">
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(255,47,69,0.35),_transparent_34%),radial-gradient(circle_at_10%_0%,_rgba(111,182,255,0.24),_transparent_30%)]" />
-
-      <section className="relative z-10 flex h-full w-full flex-col gap-4">
-        <header className="flex shrink-0 items-center justify-between px-1">
-          <div className="flex items-center gap-3">
-            <div className="relative h-12 w-18 overflow-hidden bg-[#141044] shadow-lg shadow-black/20">
-              <Image
-                alt="Logo PROCO & Cie"
-                className="object-contain"
-                fill
-                priority
-                sizes="144px"
-                src="/assets/proco-logo.png"
-              />
-            </div>
-            <div>
-              <p className="text-[0.65rem] font-bold uppercase tracking-[0.38em] text-[#6fb6ff]">
-                PROCO & Cie
-              </p>
-              <h1 className="text-2xl font-black tracking-[0.24em] text-white">
-                IT INVENTORY
-              </h1>
-            </div>
+    <main className="flex h-screen bg-slate-950 text-slate-100">
+      <aside className="hidden w-56 shrink-0 flex-col border-r border-white/10 bg-slate-900 p-3 xl:flex xl:flex-col">
+        <div className="mb-4 flex items-center gap-2 border-b border-white/10 pb-3">
+          <div className="relative h-8 w-12">
+            <Image
+              alt="Logo PROCO"
+              className="object-contain"
+              fill
+              priority
+              sizes="48px"
+              src="/assets/proco-logo.png"
+            />
           </div>
-
-          <DashboardUserMenu />
-        </header>
-
-        <div className="grid min-h-0 flex-1 grid-rows-1 overflow-hidden rounded-[2rem] border border-white/10 bg-[#1a1d4d]/95 shadow-2xl shadow-black/40 backdrop-blur xl:grid-cols-[17rem_1fr]">
-          <aside className="hidden min-h-0 flex-col border-r border-white/10 bg-[#151b44] p-5 xl:flex">
-
-            <nav className="space-y-2">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                const isActive = pathname === item.href;
-
-                return (
-                  <Link
-                    className={`flex h-11 w-full items-center justify-start gap-3 rounded-lg px-2.5 text-sm font-medium transition-all ${
-                      isActive
-                        ? "bg-[#6fb6ff]/18 text-white hover:bg-[#6fb6ff]/24"
-                        : "bg-transparent text-slate-300 hover:bg-white/8 hover:text-white"
-                    }`}
-                    href={item.href}
-                    key={item.label}
-                  >
-                    <Icon className="size-4" />
-                    <span className="flex-1 text-left">{item.label}</span>
-                    {item.label === "Gestion stock" && stockAlerts > 0 ? (
-                      <Badge className="min-w-5 justify-center bg-[#ff2f45] px-1.5 text-white">
-                        {stockAlerts}
-                      </Badge>
-                    ) : null}
-                    {item.label === "Affectations" && assignmentAlerts > 0 ? (
-                      <Badge className="min-w-5 justify-center bg-amber-500 px-1.5 text-[#0d1433]">
-                        {assignmentAlerts}
-                      </Badge>
-                    ) : null}
-                    {item.label === "Pannes" && openIncidents > 0 ? (
-                      <Badge className="min-w-5 justify-center bg-[#ff2f45] px-1.5 text-white">
-                        {openIncidents}
-                      </Badge>
-                    ) : null}
-                  </Link>
-                );
-              })}
-            </nav>
-          </aside>
-
-          <div className="min-h-0 h-full overflow-y-auto overflow-x-hidden overscroll-y-contain p-4 [scrollbar-gutter:stable]">
-            {children}
+          <div>
+            <p className="text-[10px] uppercase text-slate-500">PROCO</p>
+            <p className="text-sm font-semibold">IT Inventory</p>
           </div>
         </div>
-      </section>
+
+        <nav className="flex-1 space-y-1">
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = pathname === item.href;
+
+            return (
+              <Link
+                className={`flex h-9 items-center gap-2 rounded px-2 text-sm ${
+                  isActive
+                    ? "bg-slate-800 text-white"
+                    : "text-slate-400 hover:bg-slate-800/60 hover:text-white"
+                }`}
+                href={item.href}
+                key={item.label}
+              >
+                <Icon className="size-4 shrink-0" />
+                <span className="flex-1">{item.label}</span>
+                {item.badge === "stock" && stockAlerts > 0 ? (
+                  <Badge className="bg-red-600 px-1.5 text-white">{stockAlerts}</Badge>
+                ) : null}
+                {item.badge === "assignments" && assignmentAlerts > 0 ? (
+                  <Badge className="bg-amber-500 px-1.5 text-slate-900">
+                    {assignmentAlerts}
+                  </Badge>
+                ) : null}
+                {item.badge === "support" && openSupportTickets > 0 ? (
+                  <Badge className="bg-amber-500 px-1.5 text-slate-900">
+                    {openSupportTickets}
+                  </Badge>
+                ) : null}
+                {item.badge === "incidents" && openIncidents > 0 ? (
+                  <Badge className="bg-red-600 px-1.5 text-white">{openIncidents}</Badge>
+                ) : null}
+              </Link>
+            );
+          })}
+        </nav>
+        <div className="mt-auto hidden border-t border-white/10 pt-3 xl:block">
+          <DashboardUserMenu />
+        </div>
+      </aside>
+
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex shrink-0 items-center justify-between border-b border-white/10 px-4 py-2 xl:hidden">
+          <p className="text-sm font-semibold">IT Inventory</p>
+          <DashboardUserMenu />
+        </header>
+        <div className="min-h-0 flex-1 overflow-auto p-4">{children}</div>
+      </div>
     </main>
   );
 }

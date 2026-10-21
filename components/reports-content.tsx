@@ -29,6 +29,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { ui } from "@/lib/ui-styles";
+import { KYC_IN_STORE_COLUMNS, KYC_PROCO_COLUMNS, KYC_UI, KYC_WORKSTATION_COLUMNS } from "@/lib/kyc-excel/terminology";
+
 type SummaryItem = {
   hint: string;
   label: string;
@@ -143,7 +146,7 @@ async function exportPdf(data: ReportsData) {
       asset.status,
       asset.value,
     ]),
-    head: [["SKU", "Materiel", "Categorie", "Localisation", "Affectation", "Statut", "Valeur"]],
+    head: [[KYC_PROCO_COLUMNS.NO, KYC_PROCO_COLUMNS.DESCRIPTION, "Categorie", KYC_PROCO_COLUMNS.LOCATION, KYC_PROCO_COLUMNS.DESIGNATED_CUSTODIAN, KYC_PROCO_COLUMNS.STATUS, KYC_PROCO_COLUMNS.RELATIVE_VALUE]],
     margin: { left: 14, right: 14 },
     startY: contentStartY + 34,
     styles: { fontSize: 8, cellPadding: 2 },
@@ -160,7 +163,7 @@ async function exportPdf(data: ReportsData) {
       incident.status,
       incident.assignee,
     ]),
-    head: [["Reference", "Materiel", "Panne", "Criticite", "Statut", "Technicien"]],
+    head: [["Reference", KYC_PROCO_COLUMNS.DESCRIPTION, "Panne", "Criticite", KYC_PROCO_COLUMNS.STATUS, KYC_WORKSTATION_COLUMNS.USER]],
     margin: { left: 14, right: 14 },
     startY: (doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable
       ? (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 12
@@ -237,21 +240,19 @@ export function ReportsContent() {
   }, []);
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-5 text-white">
-      <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/30 xl:flex-row xl:items-center xl:justify-between">
+    <section className={ui.page}>
+      <header className={`${ui.header} xl:flex xl:items-center xl:justify-between`}>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-[#6fb6ff]">
-            Rapports
-          </p>
-          <h1 className="mt-2 text-3xl font-black">Rapports IT Inventory</h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-300">
+          <p className={ui.eyebrow}>Rapports</p>
+          <h1 className={ui.title}>Rapports IT Inventory</h1>
+          <p className={`${ui.subtitle} mt-1 max-w-3xl`}>
             Synthese executable pour inventaire, pannes, mouvements, risques et
             repartitions. Export disponible en PDF soigne et en Excel.
           </p>
         </div>
-        <div className="flex flex-wrap gap-3">
+        <div className="mt-3 flex flex-wrap gap-2 xl:mt-0">
           <Button
-            className="h-11 bg-[#ff2f45] text-white hover:bg-[#ff2f45]/90"
+            className={ui.btnPrimary}
             disabled={!data}
             onClick={() => data && void exportPdf(data)}
             type="button"
@@ -260,7 +261,7 @@ export function ReportsContent() {
             Exporter PDF
           </Button>
           <Button
-            className="bg-[#ff2f45] text-white hover:bg-[#ff4b5e]"
+            className={ui.btnSecondary}
             disabled={!data}
             onClick={() => data && exportExcel(data)}
             type="button"
@@ -272,58 +273,62 @@ export function ReportsContent() {
       </header>
 
       {error ? (
-        <Card className="border-[#ff2f45]/30 bg-[#ff2f45]/10 text-white ring-0">
-          <CardContent className="p-6">{error}</CardContent>
+        <Card className={`${ui.panel} border-red-900/40 ring-0`}>
+          <CardContent className={`${ui.panelBody} text-sm text-red-200`}>{error}</CardContent>
         </Card>
       ) : null}
 
       {!error && isLoading ? (
-        <Card className="border-white/10 bg-white/7 text-white ring-0">
-          <CardContent className="p-6">Chargement des rapports...</CardContent>
+        <Card className={`${ui.panel} ring-0`}>
+          <CardContent className={`${ui.panelBody} text-sm text-slate-400`}>Chargement des rapports...</CardContent>
         </Card>
       ) : null}
 
       {!error && data ? (
         <>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
             {data.summary.map((item) => (
-              <Card
-                className="border-white/10 bg-[#11183b]/95 text-white ring-0"
-                key={item.label}
-              >
-                <CardHeader>
-                  <CardDescription className="text-slate-400">
+              <Card className={`${ui.panel} ring-0`} key={item.label}>
+                <CardHeader className={ui.panelHeader}>
+                  <CardDescription className={ui.subtitle}>
                     {item.label}
                   </CardDescription>
-                  <CardTitle className="text-3xl font-black text-white">
+                  <CardTitle className="text-2xl font-semibold text-white">
                     {item.value}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="text-sm text-[#8cc6ff]">
+                <CardContent className={`${ui.panelBody} pt-0 text-sm text-slate-400`}>
                   {item.hint}
                 </CardContent>
               </Card>
             ))}
           </div>
 
-          <div className="grid min-h-0 gap-4 xl:grid-cols-[1.2fr_0.8fr]">
-            <Card className="min-h-0 border-white/10 bg-[#11183b]/95 text-white ring-0">
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Download className="size-5 text-[#6fb6ff]" />
-                  Apercu inventaire exporte
+          <div className="grid min-h-0 gap-3 xl:grid-cols-[1.2fr_0.8fr]">
+            <Card className={`${ui.panel} ${ui.tablePanel}`}>
+              <CardHeader className={ui.panelHeader}>
+                <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                  <Download className="size-4 text-slate-400" />
+                  Apercu {KYC_UI.EXPORT_PREVIEW}
                 </CardTitle>
-                <CardDescription className="text-slate-400">
-                  {data.assets.length} materiel(s), donnees identiques aux exports.
+                <CardDescription className={ui.subtitle}>
+                  {data.assets.length} {KYC_IN_STORE_COLUMNS.ITEM}(s), donnees identiques aux exports.
                 </CardDescription>
               </CardHeader>
-              <CardContent className="overflow-auto">
+              <CardContent className={ui.tablePanelBody}>
+                <div className={ui.tableWrap}>
                 <Table>
                   <TableHeader>
                     <TableRow className="border-white/10 hover:bg-transparent">
-                      {["SKU", "Materiel", "Localisation", "Statut", "Valeur"].map(
+                      {[
+                        KYC_PROCO_COLUMNS.NO,
+                        KYC_PROCO_COLUMNS.DESCRIPTION,
+                        KYC_PROCO_COLUMNS.LOCATION,
+                        KYC_PROCO_COLUMNS.STATUS,
+                        KYC_PROCO_COLUMNS.RELATIVE_VALUE,
+                      ].map(
                         (head) => (
-                          <TableHead className="text-slate-400" key={head}>
+                          <TableHead className="text-xs text-slate-500" key={head}>
                             {head}
                           </TableHead>
                         ),
@@ -332,16 +337,16 @@ export function ReportsContent() {
                   </TableHeader>
                   <TableBody>
                     {data.assets.slice(0, 8).map((asset) => (
-                      <TableRow className="border-white/6 hover:bg-white/5" key={asset.sku}>
+                      <TableRow className="border-white/6" key={asset.sku}>
                         <TableCell className="font-mono text-xs text-slate-400">
                           {asset.sku}
                         </TableCell>
-                        <TableCell className="font-bold">{asset.name}</TableCell>
-                        <TableCell className="text-[#8cc6ff]">
+                        <TableCell className="font-medium">{asset.name}</TableCell>
+                        <TableCell className="text-slate-300">
                           {asset.location}
                         </TableCell>
                         <TableCell>
-                          <Badge className="bg-white/10 text-white">
+                          <Badge className="bg-slate-800 text-slate-300">
                             {asset.status}
                           </Badge>
                         </TableCell>
@@ -350,25 +355,26 @@ export function ReportsContent() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               </CardContent>
             </Card>
 
-            <div className="grid gap-4">
-              <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <PieChart className="size-5 text-[#6fb6ff]" />
-                    Repartition par statut
+            <div className="grid gap-3">
+              <Card className={`${ui.panel} ring-0`}>
+                <CardHeader className={ui.panelHeader}>
+                  <CardTitle className="flex items-center gap-2 text-base font-semibold">
+                    <PieChart className="size-4 text-slate-400" />
+                    Repartition par {KYC_UI.STATUS}
                   </CardTitle>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className={`${ui.panelBody} space-y-2`}>
                   {data.breakdowns.byStatus.map((item) => (
                     <div
-                      className="flex items-center justify-between rounded-xl bg-white/6 px-3 py-2"
+                      className="flex items-center justify-between rounded-md border border-white/10 bg-slate-900/50 px-3 py-2"
                       key={item.label}
                     >
                       <span>{item.label}</span>
-                      <Badge className="bg-[#ff2f45]/20 text-[#ff7a88]">
+                      <Badge className="bg-red-900/40 text-red-200">
                         {item.value}
                       </Badge>
                     </div>
@@ -376,20 +382,20 @@ export function ReportsContent() {
                 </CardContent>
               </Card>
 
-              <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-                <CardHeader>
-                  <CardTitle>Risques prioritaires</CardTitle>
-                  <CardDescription className="text-slate-400">
-                    Materiels critiques, perdus ou en maintenance.
+              <Card className={`${ui.panel} ring-0`}>
+                <CardHeader className={ui.panelHeader}>
+                  <CardTitle className="text-base font-semibold">{KYC_UI.PRIORITY_RISKS}</CardTitle>
+                  <CardDescription className={ui.subtitle}>
+                    {KYC_IN_STORE_COLUMNS.ITEM} critiques, perdus ou en {KYC_UI.STATUS} Maintenance.
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-3">
+                <CardContent className={`${ui.panelBody} space-y-2`}>
                   {data.risks.length ? (
                     data.risks.map((risk) => (
-                      <div className="rounded-xl border border-white/10 bg-white/6 p-3" key={`${risk.asset}-${risk.status}`}>
-                        <p className="font-bold">{risk.asset}</p>
+                      <div className="rounded-md border border-white/10 bg-slate-900/50 p-3" key={`${risk.asset}-${risk.status}`}>
+                        <p className="font-medium">{risk.asset}</p>
                         <p className="text-sm text-slate-400">{risk.location}</p>
-                        <Badge className="mt-2 bg-[#ff2f45]/20 text-[#ff7a88]">
+                        <Badge className="mt-2 bg-red-900/40 text-red-200">
                           {risk.status}
                         </Badge>
                       </div>

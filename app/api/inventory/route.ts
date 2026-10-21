@@ -78,13 +78,24 @@ const getInventoryData = unstable_cache(
         sku: asset.sku,
         serialNumber: asset.serialNumber,
         name: asset.name,
+        model: asset.model,
+        brand: asset.brand,
         imageUrl: asset.imageUrl,
+        systemOs: asset.systemOs,
+        storageRam: asset.storageRam,
+        ownerLabel: asset.ownerLabel,
+        custodianName: asset.custodianName,
+        workstationCode: asset.workstationCode,
+        processLabel: asset.processLabel,
+        assetGroup: asset.assetGroup,
         category: asset.category.name,
         location: asset.location?.name ?? "Non localise",
         status: assetStatusLabels[asset.status] ?? asset.status,
         assignedTo:
+          asset.custodianName ??
           currentAssignment?.assignedTo?.name ??
           currentAssignment?.department?.name ??
+          asset.ownerLabel ??
           "Stock IT",
         openIncident: openIncident?.reference ?? null,
         value: asset.purchaseValue ? `$${asset.purchaseValue.toString()}` : "-",

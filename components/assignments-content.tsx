@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
+import { AssetSearchSelect } from "@/components/asset-search-select";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,11 +38,17 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { ui } from "@/lib/ui-styles";
+import { KYC_IN_STORE_COLUMNS, KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
+
 type ReferenceItem = {
   assignable?: boolean;
   email?: string;
   id: string;
   name: string;
+  sku?: string;
+  serialNumber?: string | null;
+  model?: string | null;
 };
 
 type Assignment = {
@@ -114,7 +121,7 @@ function ReturnAlertBadge({
 
   if (alert === "OVERDUE") {
     return (
-      <Badge className="bg-[#ff2f45]/25 text-[#ff9aa5]">
+      <Badge className="bg-red-900/40 text-red-200">
         {label}
         {detail}
       </Badge>
@@ -122,7 +129,7 @@ function ReturnAlertBadge({
   }
 
   return (
-    <Badge className="bg-amber-500/20 text-amber-200">
+    <Badge className="bg-slate-700 text-slate-200">
       {label}
       {detail}
     </Badge>
@@ -131,22 +138,14 @@ function ReturnAlertBadge({
 
 function StatusBadge({ status }: { status: string }) {
   if (status === "Retourne") {
-    return <Badge className="bg-white/10 text-slate-200">{status}</Badge>;
+    return <Badge className="bg-slate-800 text-slate-300">{status}</Badge>;
   }
 
   if (status === "Transfere") {
-    return (
-      <Badge className="bg-[#6fb6ff]/20 text-[#9fd0ff] hover:bg-[#6fb6ff]/20">
-        {status}
-      </Badge>
-    );
+    return <Badge className="bg-slate-700 text-slate-200">{status}</Badge>;
   }
 
-  return (
-    <Badge className="bg-[#ff2f45]/20 text-[#ff9aa5] hover:bg-[#ff2f45]/20">
-      {status}
-    </Badge>
-  );
+  return <Badge className="bg-red-900/40 text-red-200">{status}</Badge>;
 }
 
 export function AssignmentsContent() {
@@ -158,9 +157,14 @@ export function AssignmentsContent() {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [assetFilterId, setAssetFilterId] = useState("");
   const [users, setUsers] = useState<ReferenceItem[]>([]);
 
   const filteredAssignments = assignments.filter((assignment) => {
+    if (assetFilterId && assignment.assetId !== assetFilterId) {
+      return false;
+    }
+
     const query = searchQuery.toLowerCase().trim();
 
     if (!query) {
@@ -272,37 +276,35 @@ export function AssignmentsContent() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-5 text-white">
-      <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/30 md:flex-row md:items-center md:justify-between">
+    <section className={ui.page}>
+      <header className={`${ui.header} md:flex md:items-center md:justify-between`}>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-[#6fb6ff]">
-            Affectations
-          </p>
-          <h1 className="mt-2 text-3xl font-black">Materiels alloues aux agents</h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-300">
-            <strong className="text-white">Remise</strong> : date ou le materiel est
-            remis a l&apos;agent.{" "}
+          <p className={ui.eyebrow}>Affectations</p>
+          <h1 className={ui.title}>{KYC_SHEET_LABELS.WORKSTATIONS}</h1>
+          <p className={`${ui.subtitle} mt-1 max-w-3xl`}>
+            <strong className="text-white">{KYC_UI.REMISE}</strong> : date ou le{" "}
+            {KYC_IN_STORE_COLUMNS.ITEM} est remis au {KYC_UI.USER}.{" "}
             <strong className="text-white">Retour prevu</strong> : echeance de
             restitution (alerte 5 jours avant).{" "}
             <strong className="text-white">Retour effectif</strong> : date reelle du
             retour, renseignee quand le statut passe a Retourne.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2 md:mt-0">
           <ExportPdfButton
             disabled={isLoading}
             filename="affectations-materiel"
             sections={[
               {
                 columns: [
-                  "Materiel",
-                  "Agent",
-                  "Departement",
-                  "Remise",
-                  "Retour prevu",
-                  "Retour effectif",
-                  "Etat",
-                  "Notes",
+                  "DESCRIPTION",
+                  KYC_UI.USER,
+                  KYC_UI.DEPARTMENT,
+                  KYC_UI.REMISE,
+                  KYC_UI.EXPECTED_RETURN,
+                  KYC_UI.ACTUAL_RETURN,
+                  KYC_UI.STATE,
+                  KYC_UI.NOTES,
                 ],
                 rows: filteredAssignments.map((assignment) => [
                   assignment.asset,
@@ -317,10 +319,10 @@ export function AssignmentsContent() {
               },
             ]}
             subtitle={`PROCO & Cie - ${filteredAssignments.length} affectation(s)`}
-            title="Affectations materiel IT"
+            title={KYC_SHEET_LABELS.WORKSTATIONS}
           />
           <Button
-            className="w-fit bg-[#ff2f45] text-white hover:bg-[#ff4b5e]"
+            className={ui.btnPrimary}
             onClick={() => {
               setEditingId(null);
               setForm(emptyForm);
@@ -328,14 +330,14 @@ export function AssignmentsContent() {
             }}
             type="button"
           >
-            Allouer un materiel
+            Allouer {KYC_IN_STORE_COLUMNS.ITEM}
           </Button>
         </div>
       </header>
 
       {loadError ? (
-        <Card className="border-[#ff2f45]/30 bg-[#ff2f45]/10 text-white ring-0">
-          <CardContent className="p-4 text-sm text-[#ff9aa5]">{loadError}</CardContent>
+        <Card className={`${ui.panel} border-red-900/40 ring-0`}>
+          <CardContent className={`${ui.panelBody} text-sm text-red-200`}>{loadError}</CardContent>
         </Card>
       ) : null}
 
@@ -343,39 +345,29 @@ export function AssignmentsContent() {
         <DialogContent className="w-[min(calc(100vw-2rem),58rem)] max-w-none border-white/10 bg-[#11183b] p-6 text-white sm:max-w-none">
           <DialogHeader>
             <DialogTitle>
-              {editingId ? "Modifier une affectation" : "Allouer un materiel"}
+              {editingId ? "Modifier une affectation" : `Allouer ${KYC_IN_STORE_COLUMNS.ITEM}`}
             </DialogTitle>
             <DialogDescription className="text-slate-400">
-              Renseignez le materiel remis, l&apos;agent responsable, les dates et
-              l&apos;etat de suivi.
+              Renseignez {KYC_UI.DESCRIPTION}, {KYC_UI.USER}, les dates et {KYC_UI.STATE}.
             </DialogDescription>
           </DialogHeader>
           <form
             className="grid gap-4 md:grid-cols-2 [&_input]:h-11 [&_select]:h-11"
             onSubmit={handleSubmit}
           >
-            <select
-              aria-label="Materiel affecte"
-              className="h-10 rounded-lg border border-white/10 bg-[#11183b] px-3 text-sm"
-              onChange={(event) =>
-                setForm((value) => ({ ...value, assetId: event.target.value }))
+            <AssetSearchSelect
+              assets={assets}
+              className="md:col-span-1"
+              label={KYC_UI.DESCRIPTION}
+              onValueChange={(assetId) =>
+                setForm((value) => ({ ...value, assetId }))
               }
+              placeholder={`${KYC_UI.SEARCH_PLACEHOLDER} (${KYC_UI.DESCRIPTION})`}
               required
               value={form.assetId}
-            >
-              <option value="">Materiel</option>
-              {assets.map((asset) => (
-                <option
-                  disabled={asset.assignable === false}
-                  key={asset.id}
-                  value={asset.id}
-                >
-                  {asset.name}
-                </option>
-              ))}
-            </select>
+            />
             <select
-              aria-label="Agent beneficiaire"
+              aria-label={KYC_UI.USER}
               className="h-10 rounded-lg border border-white/10 bg-[#11183b] px-3 text-sm"
               onChange={(event) =>
                 setForm((value) => ({
@@ -385,7 +377,7 @@ export function AssignmentsContent() {
               }
               value={form.assignedToId}
             >
-              <option value="">Agent</option>
+              <option value="">{KYC_UI.USER}</option>
               {users.map((user) => (
                 <option key={user.id} value={user.id}>
                   {user.name}
@@ -393,7 +385,7 @@ export function AssignmentsContent() {
               ))}
             </select>
             <select
-              aria-label="Departement beneficiaire"
+              aria-label={KYC_UI.DEPARTMENT}
               className="h-10 rounded-lg border border-white/10 bg-[#11183b] px-3 text-sm"
               onChange={(event) =>
                 setForm((value) => ({
@@ -403,7 +395,7 @@ export function AssignmentsContent() {
               }
               value={form.departmentId}
             >
-              <option value="">Departement</option>
+              <option value="">{KYC_UI.DEPARTMENT}</option>
               {departments.map((department) => (
                 <option key={department.id} value={department.id}>
                   {department.name}
@@ -465,14 +457,14 @@ export function AssignmentsContent() {
             />
             <div className="flex flex-wrap gap-2 md:col-span-2">
               <Button
-                className="flex-1 bg-[#ff2f45] text-white hover:bg-[#ff4b5e]"
+                className={`flex-1 ${ui.btnPrimary}`}
                 type="submit"
               >
                 {editingId ? "Enregistrer" : "Allouer"}
               </Button>
               {editingId ? (
                 <Button
-                  className="border border-[#ff2f45]/40 bg-[#ff2f45]/20 text-[#ff9aa5] hover:bg-[#ff2f45]/30"
+                  className="bg-red-900/30 text-red-200 hover:bg-red-900/50"
                   onClick={async () => {
                     await handleDelete(editingId);
                     setEditingId(null);
@@ -487,7 +479,7 @@ export function AssignmentsContent() {
               ) : null}
               {editingId ? (
                 <Button
-                  className="bg-white/10 text-white hover:bg-white/15"
+                  className={ui.btnSecondary}
                   onClick={() => {
                     setEditingId(null);
                     setForm(emptyForm);
@@ -503,11 +495,11 @@ export function AssignmentsContent() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-        <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <PackageCheck className="size-5 text-[#6fb6ff]" />
+      <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <PackageCheck className="size-4 text-slate-400" />
               {assignments.filter((item) => item.statusCode === "ACTIVE").length}
             </CardTitle>
             <CardDescription className="text-slate-400">
@@ -515,10 +507,10 @@ export function AssignmentsContent() {
             </CardDescription>
           </CardHeader>
         </Card>
-        <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <AlertTriangle className="size-5 text-amber-300" />
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <AlertTriangle className="size-4 text-slate-400" />
               {
                 assignments.filter(
                   (item) => item.returnAlert === "DUE_SOON" || item.returnAlert === "OVERDUE",
@@ -530,10 +522,10 @@ export function AssignmentsContent() {
             </CardDescription>
           </CardHeader>
         </Card>
-        <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <ClipboardCheck className="size-5 text-[#6fb6ff]" />
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <ClipboardCheck className="size-4 text-slate-400" />
               {assignments.filter((item) => item.statusCode === "RETURNED").length}
             </CardTitle>
             <CardDescription className="text-slate-400">
@@ -541,10 +533,10 @@ export function AssignmentsContent() {
             </CardDescription>
           </CardHeader>
         </Card>
-        <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <CalendarDays className="size-5 text-[#6fb6ff]" />
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <CalendarDays className="size-4 text-slate-400" />
               {assignments.length}
             </CardTitle>
             <CardDescription className="text-slate-400">
@@ -557,24 +549,24 @@ export function AssignmentsContent() {
       {assignments.some(
         (item) => item.returnAlert === "DUE_SOON" || item.returnAlert === "OVERDUE",
       ) ? (
-        <Card className="border-amber-500/30 bg-amber-500/10 text-white ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg text-amber-100">
-              <AlertTriangle className="size-5" />
-              Alertes de retour materiel
+        <Card className={`${ui.panel} border-slate-600/40 ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold text-slate-200">
+              <AlertTriangle className="size-4" />
+              Alertes {KYC_UI.EXPECTED_RETURN}
             </CardTitle>
-            <CardDescription className="text-amber-100/80">
+            <CardDescription className={ui.subtitle}>
               Retours prevus dans les 5 prochains jours ou en retard.
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className={`${ui.panelBody} space-y-2`}>
             {assignments
               .filter(
                 (item) => item.returnAlert === "DUE_SOON" || item.returnAlert === "OVERDUE",
               )
               .map((item) => (
                 <div
-                  className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/6 px-3 py-2 text-sm"
+                  className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-white/10 bg-slate-900/50 px-3 py-2 text-sm"
                   key={item.id}
                 >
                   <span>
@@ -592,38 +584,49 @@ export function AssignmentsContent() {
         </Card>
       ) : null}
 
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
-        <Input
-          className="h-11 border-white/10 bg-white/6 pl-11 text-white"
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Rechercher par agent, materiel, departement, etat..."
-          value={searchQuery}
+      <div className="grid gap-3 md:grid-cols-2">
+        <AssetSearchSelect
+          assets={assets}
+          emptyLabel={`${KYC_UI.ALL} — ${KYC_UI.DESCRIPTION}`}
+          label={`${KYC_UI.DESCRIPTION} ${KYC_UI.OPTIONAL}`}
+          onValueChange={setAssetFilterId}
+          placeholder={`${KYC_UI.SEARCH_PLACEHOLDER} (${KYC_UI.DESCRIPTION})`}
+          value={assetFilterId}
         />
+        <div className="relative">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
+          <Input
+            className={`${ui.input} pl-9 text-white`}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder={`${KYC_UI.USER}, ${KYC_UI.DESCRIPTION}, ${KYC_UI.DEPARTMENT}, ${KYC_UI.STATE}…`}
+            value={searchQuery}
+          />
+        </div>
       </div>
 
-      <Card className="min-h-0 flex-1 border-white/10 bg-[#11183b]/95 text-white ring-0">
-        <CardContent className="overflow-auto p-4">
+      <Card className={`${ui.panel} ${ui.tablePanel}`}>
+        <CardContent className={ui.tablePanelBody}>
           {isLoading ? (
-            <p className="rounded-xl bg-white/6 p-4 text-sm text-slate-300">
+            <p className="rounded-md bg-slate-800/50 p-4 text-sm text-slate-400">
               Chargement des affectations...
             </p>
           ) : (
+            <div className={ui.tableWrap}>
             <Table>
               <TableHeader>
                 <TableRow className="border-white/10 hover:bg-transparent">
                   {[
-                    "Materiel",
-                    "Agent",
-                    "Departement",
-                    "Remise",
-                    "Retour prevu",
-                    "Retour effectif",
-                    "Etat",
-                    "Notes",
-                    "Actions",
+                    "DESCRIPTION",
+                    KYC_UI.USER,
+                    KYC_UI.DEPARTMENT,
+                    KYC_UI.REMISE,
+                    KYC_UI.EXPECTED_RETURN,
+                    KYC_UI.ACTUAL_RETURN,
+                    KYC_UI.STATE,
+                    KYC_UI.NOTES,
+                    KYC_UI.ACTIONS,
                   ].map((head) => (
-                    <TableHead className="text-slate-400" key={head}>
+                    <TableHead className="text-xs text-slate-500" key={head}>
                       {head}
                     </TableHead>
                   ))}
@@ -631,9 +634,9 @@ export function AssignmentsContent() {
               </TableHeader>
               <TableBody>
                 {filteredAssignments.map((assignment) => (
-                  <TableRow className="border-white/6 hover:bg-white/5" key={assignment.id}>
+                  <TableRow className="border-white/6" key={assignment.id}>
                     <TableCell>
-                      <p className="font-bold">{assignment.asset}</p>
+                      <p className="font-medium">{assignment.asset}</p>
                       <p className="text-xs text-slate-500">
                         {assignment.category} · {assignment.location}
                       </p>
@@ -661,15 +664,17 @@ export function AssignmentsContent() {
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
-                          className="bg-white/10 text-white hover:bg-white/15"
+                          className={ui.btnSecondary}
                           onClick={() => handleEdit(assignment)}
+                          size="sm"
                           type="button"
                         >
                           Modifier
                         </Button>
                         <Button
-                          className="border border-[#ff2f45]/40 bg-[#ff2f45]/20 text-[#ff9aa5] hover:bg-[#ff2f45]/30"
+                          className="bg-red-900/30 text-red-200 hover:bg-red-900/50"
                           onClick={() => handleDelete(assignment.id)}
+                          size="sm"
                           type="button"
                         >
                           Supprimer
@@ -680,6 +685,7 @@ export function AssignmentsContent() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

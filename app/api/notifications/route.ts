@@ -12,7 +12,8 @@ export const dynamic = "force-dynamic";
 
 const getNotifications = unstable_cache(
   async () => {
-    const [openIncidents, assets, activeAssignments] = await Promise.all([
+    const [openIncidents, assets, activeAssignments, openSupportTickets] =
+      await Promise.all([
       prisma.incident.count({
         where: {
           status: {
@@ -40,6 +41,13 @@ const getNotifications = unstable_cache(
         include: {
           asset: true,
           assignedTo: true,
+        },
+      }),
+      prisma.supportTicket.count({
+        where: {
+          status: {
+            notIn: ["RESOLVED", "CLOSED"],
+          },
         },
       }),
     ]);
@@ -92,6 +100,7 @@ const getNotifications = unstable_cache(
 
     return {
       openIncidents,
+      openSupportTickets,
       stockAlerts: {
         count: stockAlerts.length,
         items: stockAlerts,
@@ -105,7 +114,7 @@ const getNotifications = unstable_cache(
   ["notifications-data"],
   {
     revalidate: 60,
-    tags: ["notifications", "incidents", "stock", "inventory", "assignments"],
+    tags: ["notifications", "incidents", "support-tickets", "stock", "inventory", "assignments"],
   },
 );
 

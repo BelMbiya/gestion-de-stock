@@ -3,6 +3,7 @@
 import { Clock, History, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
+import { AssetSearchSelect } from "@/components/asset-search-select";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -22,11 +23,16 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { ui } from "@/lib/ui-styles";
+import { KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
+
 type HistoryAsset = {
   category: string;
   id: string;
   location: string;
+  model?: string | null;
   name: string;
+  serialNumber?: string | null;
   sku: string;
 };
 
@@ -62,14 +68,14 @@ const periodOptions = [
 
 function TypeBadge({ type }: { type: string }) {
   if (type === "Panne" || type === "Suivi panne") {
-    return <Badge className="bg-[#ff2f45]/20 text-[#ff9aa5]">{type}</Badge>;
+    return <Badge className="bg-red-900/40 text-red-200">{type}</Badge>;
   }
 
   if (type === "Affectation") {
-    return <Badge className="bg-[#6fb6ff]/20 text-[#9fd0ff]">{type}</Badge>;
+    return <Badge className="bg-slate-700 text-slate-200">{type}</Badge>;
   }
 
-  return <Badge className="bg-white/10 text-white">{type}</Badge>;
+  return <Badge className="bg-slate-800 text-slate-300">{type}</Badge>;
 }
 
 function buildHistoryQuery(params: {
@@ -200,7 +206,7 @@ export function HistoryContent() {
   const exportSubtitle = useMemo(() => {
     const parts = [
       `Genere le ${new Date().toLocaleString("fr-FR")}`,
-      selectedAsset ? `Materiel: ${selectedAsset.name}` : "Materiel: tous",
+      selectedAsset ? `${KYC_UI.DESCRIPTION}: ${selectedAsset.name}` : `${KYC_UI.DESCRIPTION}: ${KYC_UI.ALL}`,
       selectedTechnician
         ? `Technicien: ${selectedTechnician.name}`
         : "Technicien: tous",
@@ -228,16 +234,14 @@ export function HistoryContent() {
   ]);
 
   return (
-    <section className="flex flex-col gap-5 pb-2 text-white">
-      <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/30 xl:flex-row xl:items-center xl:justify-between">
+    <section className={ui.page}>
+      <header className={`${ui.header} xl:flex xl:items-center xl:justify-between`}>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-[#6fb6ff]">
-            Historique
-          </p>
-          <h1 className="mt-2 text-3xl font-black">Historique complet materiel</h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-300">
-            Consultez et exportez les deplacements, transports, affectations et
-            pannes par periode, date, technicien ou materiel.
+          <p className={ui.eyebrow}>{KYC_UI.HISTORY}</p>
+          <h1 className={ui.title}>{KYC_UI.HISTORY}</h1>
+          <p className={`${ui.subtitle} mt-1 max-w-3xl`}>
+            {KYC_UI.MOVEMENTS}, affectations et {KYC_UI.INCIDENT} par periode, {KYC_UI.DATE},{" "}
+            {KYC_UI.TECHNICIAN} ou {KYC_UI.DESCRIPTION}.
           </p>
         </div>
         <ExportPdfButton
@@ -245,7 +249,7 @@ export function HistoryContent() {
           filename="historique-materiel"
           sections={[
             {
-              columns: ["Date", "Type", "Materiel", "Titre", "Responsable", "Detail"],
+              columns: ["Date", "Type", KYC_UI.DESCRIPTION, "Titre", "Responsable", "Detail"],
               rows: filteredEvents.map((event) => [
                 event.date,
                 event.type,
@@ -257,37 +261,29 @@ export function HistoryContent() {
             },
           ]}
           subtitle={`PROCO & Cie - ${exportSubtitle}`}
-          title="Historique materiel IT"
+          title={`${KYC_UI.HISTORY} IT`}
         />
       </header>
 
-      <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-        <CardHeader>
-          <CardTitle className="text-lg">Filtres d&apos;historique</CardTitle>
-          <CardDescription className="text-slate-400">
-            Combinez periode, date precise, technicien et materiel avant export.
+      <Card className={`${ui.panel} ring-0`}>
+        <CardHeader className={ui.panelHeader}>
+          <CardTitle className="text-base font-semibold">Filtres d&apos;historique</CardTitle>
+          <CardDescription className={ui.subtitle}>
+            Combinez periode, {KYC_UI.DATE}, {KYC_UI.TECHNICIAN} et {KYC_UI.DESCRIPTION} avant export.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          <label className="flex flex-col gap-2 text-sm text-slate-300">
-            Materiel
-            <select
-              className="h-11 rounded-xl border border-white/10 bg-[#0d1433] px-3 text-white"
-              onChange={(event) => setSelectedAssetId(event.target.value)}
-              value={selectedAssetId}
-            >
-              <option value="">Tous les materiels</option>
-              {assets.map((asset) => (
-                <option key={asset.id} value={asset.id}>
-                  {asset.sku} - {asset.name}
-                </option>
-              ))}
-            </select>
-          </label>
+        <CardContent className={`${ui.panelBody} grid gap-3 md:grid-cols-2 xl:grid-cols-3`}>
+          <AssetSearchSelect
+            assets={assets}
+            emptyLabel={`${KYC_UI.ALL} — ${KYC_UI.DESCRIPTION}`}
+            label={KYC_UI.DESCRIPTION}
+            onValueChange={setSelectedAssetId}
+            value={selectedAssetId}
+          />
           <label className="flex flex-col gap-2 text-sm text-slate-300">
             Technicien
             <select
-              className="h-11 rounded-xl border border-white/10 bg-[#0d1433] px-3 text-white"
+              className={`${ui.input} rounded-md px-3 text-white`}
               onChange={(event) => setSelectedTechnicianId(event.target.value)}
               value={selectedTechnicianId}
             >
@@ -302,7 +298,7 @@ export function HistoryContent() {
           <label className="flex flex-col gap-2 text-sm text-slate-300">
             Periode
             <select
-              className="h-11 rounded-xl border border-white/10 bg-[#0d1433] px-3 text-white"
+              className={`${ui.input} rounded-md px-3 text-white`}
               onChange={(event) => {
                 setPeriod(event.target.value);
                 if (event.target.value) {
@@ -321,7 +317,7 @@ export function HistoryContent() {
           <label className="flex flex-col gap-2 text-sm text-slate-300">
             Date precise
             <Input
-              className="h-11 border-white/10 bg-[#0d1433] text-white"
+              className={`${ui.input} text-white`}
               onChange={(event) => {
                 setSpecificDate(event.target.value);
                 if (event.target.value) {
@@ -337,7 +333,7 @@ export function HistoryContent() {
           <label className="flex flex-col gap-2 text-sm text-slate-300">
             Debut intervalle
             <Input
-              className="h-11 border-white/10 bg-[#0d1433] text-white"
+              className={`${ui.input} text-white`}
               disabled={Boolean(specificDate)}
               onChange={(event) => setStartDate(event.target.value)}
               type="date"
@@ -347,7 +343,7 @@ export function HistoryContent() {
           <label className="flex flex-col gap-2 text-sm text-slate-300">
             Fin intervalle
             <Input
-              className="h-11 border-white/10 bg-[#0d1433] text-white"
+              className={`${ui.input} text-white`}
               disabled={Boolean(specificDate)}
               onChange={(event) => setEndDate(event.target.value)}
               type="date"
@@ -357,22 +353,24 @@ export function HistoryContent() {
         </CardContent>
       </Card>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <History className="size-5 text-[#6fb6ff]" />
+      <div className="grid gap-3 md:grid-cols-3">
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <History className="size-4 text-slate-400" />
               {filteredEvents.length}
             </CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className={ui.subtitle}>
               Evenements historises
             </CardDescription>
           </CardHeader>
         </Card>
-        <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0 md:col-span-2">
-          <CardHeader>
-            <CardTitle>{selectedAsset?.name ?? "Tous les materiels"}</CardTitle>
-            <CardDescription className="text-slate-400">
+        <Card className={`${ui.panel} ring-0 md:col-span-2`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="text-base font-semibold">
+              {selectedAsset?.name ?? KYC_UI.ALL_DESCRIPTIONS}
+            </CardTitle>
+            <CardDescription className={ui.subtitle}>
               {selectedAsset
                 ? `${selectedAsset.sku} · ${selectedAsset.category} · ${selectedAsset.location}`
                 : "Vue consolidee du cycle de vie du parc IT."}
@@ -382,50 +380,51 @@ export function HistoryContent() {
       </div>
 
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
         <Input
-          className="h-11 border-white/10 bg-white/6 pl-11 text-white"
+          className={`${ui.input} pl-9 text-white`}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Rechercher type, materiel, agent, detail..."
+          placeholder={`${KYC_UI.TYPE}, ${KYC_UI.DESCRIPTION}, ${KYC_UI.USER}, ${KYC_UI.DETAIL}…`}
           value={searchQuery}
         />
       </div>
 
-      <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-        <CardContent className="p-4">
+      <Card className={`${ui.panel} ${ui.tablePanel}`}>
+        <CardContent className={ui.tablePanelBody}>
           {isLoading ? (
-            <p className="rounded-xl bg-white/6 p-4 text-sm text-slate-300">
+            <p className="rounded-md bg-slate-800/50 p-4 text-sm text-slate-400">
               Chargement de l&apos;historique...
             </p>
           ) : filteredEvents.length === 0 ? (
-            <p className="rounded-xl bg-white/6 p-4 text-sm text-slate-300">
+            <p className="rounded-md bg-slate-800/50 p-4 text-sm text-slate-400">
               Aucun evenement pour les filtres selectionnes.
             </p>
           ) : (
+            <div className={ui.tableWrap}>
             <Table className="table-fixed">
-              <TableHeader className="sticky top-0 z-10 bg-[#11183b]">
+              <TableHeader>
                 <TableRow className="border-white/10 hover:bg-transparent">
-                  <TableHead className="w-[14%] text-slate-400">Date</TableHead>
-                  <TableHead className="w-[14%] text-slate-400">Type</TableHead>
-                  <TableHead className="w-[22%] text-slate-400">Materiel</TableHead>
-                  <TableHead className="w-[22%] text-slate-400">Titre</TableHead>
-                  <TableHead className="w-[14%] text-slate-400">Responsable</TableHead>
-                  <TableHead className="w-[14%] text-slate-400">Detail</TableHead>
+                  <TableHead className="w-[14%] text-xs text-slate-500">Date</TableHead>
+                  <TableHead className="w-[14%] text-xs text-slate-500">Type</TableHead>
+                  <TableHead className="w-[22%] text-xs text-slate-500">{KYC_UI.DESCRIPTION}</TableHead>
+                  <TableHead className="w-[22%] text-xs text-slate-500">Titre</TableHead>
+                  <TableHead className="w-[14%] text-xs text-slate-500">Responsable</TableHead>
+                  <TableHead className="w-[14%] text-xs text-slate-500">Detail</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredEvents.map((event) => (
-                  <TableRow className="border-white/6 hover:bg-white/5" key={event.id}>
+                  <TableRow className="border-white/6" key={event.id}>
                     <TableCell className="whitespace-normal align-top text-xs text-slate-400">
                       <span className="flex items-start gap-2">
-                        <Clock className="size-4 text-[#6fb6ff]" />
+                        <Clock className="size-4 text-slate-500" />
                         {event.date}
                       </span>
                     </TableCell>
                     <TableCell className="align-top">
                       <TypeBadge type={event.type} />
                     </TableCell>
-                    <TableCell className="whitespace-normal break-words align-top font-bold">
+                    <TableCell className="whitespace-normal break-words align-top font-medium">
                       {event.asset}
                     </TableCell>
                     <TableCell className="whitespace-normal break-words align-top">
@@ -441,6 +440,7 @@ export function HistoryContent() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

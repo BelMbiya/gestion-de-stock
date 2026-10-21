@@ -7,6 +7,7 @@ import {
   parseIncidentSearchParams,
 } from "@/lib/incident-filters";
 import { serializeIncident } from "@/lib/incident-serializer";
+import { kycAssetListSelect } from "@/lib/kyc-excel/asset-select";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -58,7 +59,7 @@ async function fetchIncidentsPayload(where?: ReturnType<typeof buildIncidentWher
     }),
     prisma.asset.findMany({
       orderBy: { name: "asc" },
-      select: { id: true, name: true, sku: true },
+      select: kycAssetListSelect,
     }),
     prisma.user.findMany({
       orderBy: { name: "asc" },

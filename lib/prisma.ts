@@ -3,7 +3,7 @@ import { PrismaMariaDb } from "@prisma/adapter-mariadb";
 import { PrismaClient } from "@/lib/generated/prisma/client";
 
 /** Increment after schema changes so dev HMR drops a cached PrismaClient. */
-const PRISMA_SCHEMA_REVISION = 2;
+const PRISMA_SCHEMA_REVISION = 5;
 
 const globalForPrisma = globalThis as unknown as {
   prisma?: PrismaClient;
@@ -36,6 +36,14 @@ function assetAssignmentHasExpectedReturn(
 /** Dev HMR can keep an outdated client after `prisma generate` — recreate if delegates/fields are missing. */
 function isPrismaClientStale(client: PrismaClient) {
   if (!("supplier" in client)) {
+    return true;
+  }
+
+  if (!("supportTicket" in client)) {
+    return true;
+  }
+
+  if (!("sheetProcoKycCallItEquipement" in client)) {
     return true;
   }
 

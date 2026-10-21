@@ -13,12 +13,13 @@ import {
   getAssignmentReturnAlertLabel,
   getDaysUntilDate,
 } from "@/lib/assignment-alerts";
-import { getStockLevelStatus, getStockLevelLabel } from "@/lib/stock-management";
+import { getStockLevelStatus } from "@/lib/stock-management";
 import {
   assignmentStatusLabels,
   normalizeAssignmentStatus,
   revalidateAssignmentTags,
 } from "@/lib/assignment-management";
+import { kycAssetListSelect } from "@/lib/kyc-excel/asset-select";
 import { prisma } from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
@@ -66,9 +67,7 @@ const getAssignmentsData = unstable_cache(
       prisma.asset.findMany({
         orderBy: { name: "asc" },
         select: {
-          id: true,
-          name: true,
-          sku: true,
+          ...kycAssetListSelect,
           status: true,
           quantityOnHand: true,
           reorderPoint: true,
@@ -100,7 +99,10 @@ const getAssignmentsData = unstable_cache(
         return {
           assignable,
           id: asset.id,
-          name: `${asset.sku} — ${asset.name} (${asset.quantityOnHand} en stock, ${getStockLevelLabel(stockLevel)}, ${asset.status})${assignable ? "" : " — non affectable"}`,
+          model: asset.model,
+          name: asset.name,
+          serialNumber: asset.serialNumber,
+          sku: asset.sku,
           stockLevel,
         };
       }),

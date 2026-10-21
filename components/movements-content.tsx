@@ -3,6 +3,7 @@
 import { Search } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
+import { AssetSearchSelect } from "@/components/asset-search-select";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,9 +27,15 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { ui } from "@/lib/ui-styles";
+import { KYC_UI } from "@/lib/kyc-excel/terminology";
+
 type ReferenceItem = {
   id: string;
   name: string;
+  sku?: string;
+  serialNumber?: string | null;
+  model?: string | null;
 };
 
 type MovementItem = {
@@ -111,23 +118,29 @@ export function MovementsContent() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-5 text-white">
-      <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/30 md:flex-row md:items-center md:justify-between">
+    <section className={ui.page}>
+      <header className={`${ui.header} md:flex md:items-center md:justify-between`}>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-[#6fb6ff]">
-            Mouvements
-          </p>
-          <h1 className="mt-2 text-3xl font-black">Mouvements de stock</h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-300">
+          <p className={ui.eyebrow}>{KYC_UI.MOVEMENTS}</p>
+          <h1 className={ui.title}>{KYC_UI.MOVEMENTS}</h1>
+          <p className={`${ui.subtitle} mt-1 max-w-2xl`}>
             Enregistrez les entrees, sorties, retours, ajustements et transferts.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2 md:mt-0">
           <ExportPdfButton
             filename="mouvements-stock"
             sections={[
               {
-                columns: ["Materiel", "Type", "Depuis", "Vers", "Motif", "Date", "Agent"],
+                columns: [
+                  KYC_UI.DESCRIPTION,
+                  KYC_UI.TYPE,
+                  KYC_UI.FROM,
+                  KYC_UI.TO,
+                  KYC_UI.REASON,
+                  KYC_UI.DATE,
+                  KYC_UI.USER,
+                ],
                 rows: filteredMovements.map((movement) => [
                   movement.asset,
                   movement.type,
@@ -140,10 +153,10 @@ export function MovementsContent() {
               },
             ]}
             subtitle={`PROCO & Cie - ${filteredMovements.length} mouvement(s)`}
-            title="Mouvements de stock IT"
+            title={`${KYC_UI.MOVEMENTS} IT`}
           />
           <Button
-            className="w-fit bg-[#ff2f45] text-white hover:bg-[#ff4b5e]"
+            className={ui.btnPrimary}
             onClick={() => setIsFormOpen(true)}
             type="button"
           >
@@ -164,21 +177,15 @@ export function MovementsContent() {
             className="grid gap-4 md:grid-cols-2 [&_input]:h-11 [&_select]:h-11"
             onSubmit={handleSubmit}
           >
-            <select
-              className="h-10 rounded-lg border border-white/10 bg-[#11183b] px-3 text-sm"
-              onChange={(event) =>
-                setForm((value) => ({ ...value, assetId: event.target.value }))
+            <AssetSearchSelect
+              assets={assets}
+              label={KYC_UI.DESCRIPTION}
+              onValueChange={(assetId) =>
+                setForm((value) => ({ ...value, assetId }))
               }
               required
               value={form.assetId}
-            >
-              <option value="">Materiel</option>
-              {assets.map((asset) => (
-                <option key={asset.id} value={asset.id}>
-                  {asset.name}
-                </option>
-              ))}
-            </select>
+            />
             <select
               className="h-10 rounded-lg border border-white/10 bg-[#11183b] px-3 text-sm"
               onChange={(event) =>
@@ -235,7 +242,7 @@ export function MovementsContent() {
               value={form.reason}
             />
             <Button
-              className="bg-[#ff2f45] text-white hover:bg-[#ff4b5e] md:col-span-2"
+              className={`md:col-span-2 ${ui.btnPrimary}`}
               type="submit"
             >
               Enregistrer
@@ -245,23 +252,24 @@ export function MovementsContent() {
       </Dialog>
 
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
         <Input
-          className="h-11 border-white/10 bg-white/6 pl-11"
+          className={`${ui.input} pl-9`}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Rechercher par materiel, type, localisation ou motif..."
+          placeholder={`${KYC_UI.DESCRIPTION}, ${KYC_UI.TYPE}, ${KYC_UI.LOCATION}, ${KYC_UI.REASON}…`}
           value={searchQuery}
         />
       </div>
 
-      <Card className="min-h-0 flex-1 border-white/10 bg-[#11183b]/95 text-white ring-0">
-        <CardContent className="overflow-auto p-4">
+      <Card className={`${ui.panel} ${ui.tablePanel}`}>
+        <CardContent className={ui.tablePanelBody}>
+          <div className={ui.tableWrap}>
           <Table>
             <TableHeader>
               <TableRow className="border-white/10 hover:bg-transparent">
-                {["Materiel", "Type", "Depuis", "Vers", "Motif", "Date", "Actions"].map(
+                { [KYC_UI.DESCRIPTION, "Type", "Depuis", "Vers", "Motif", "Date", "Actions"].map(
                   (head) => (
-                    <TableHead className="text-slate-400" key={head}>
+                    <TableHead className="text-xs text-slate-500" key={head}>
                       {head}
                     </TableHead>
                   ),
@@ -270,7 +278,7 @@ export function MovementsContent() {
             </TableHeader>
             <TableBody>
               {filteredMovements.map((movement) => (
-                <TableRow className="border-white/6 hover:bg-white/5" key={movement.id}>
+                <TableRow className="border-white/6" key={movement.id}>
                   <TableCell>{movement.asset}</TableCell>
                   <TableCell>{movement.type}</TableCell>
                   <TableCell>{movement.fromLocation}</TableCell>
@@ -279,8 +287,9 @@ export function MovementsContent() {
                   <TableCell>{movement.movedAt}</TableCell>
                   <TableCell>
                     <Button
-                      className="bg-[#ff2f45]/20 text-[#ff7a88] hover:bg-[#ff2f45]/30"
+                      className="bg-red-900/30 text-red-200 hover:bg-red-900/50"
                       onClick={() => handleDelete(movement.id)}
+                      size="sm"
                     >
                       Supprimer
                     </Button>
@@ -289,6 +298,7 @@ export function MovementsContent() {
               ))}
             </TableBody>
           </Table>
+          </div>
         </CardContent>
       </Card>
     </section>

@@ -2,6 +2,7 @@ import { unstable_cache } from "next/cache";
 import { NextResponse } from "next/server";
 
 import { sortIncidentsByResolutionPriority } from "@/lib/incident-resolution";
+import { KYC_UI } from "@/lib/kyc-excel/terminology";
 import { prisma } from "@/lib/prisma";
 import { getStockLevelStatus } from "@/lib/stock-management";
 
@@ -125,21 +126,21 @@ const getDashboardData = unstable_cache(
   return {
     stats: [
       {
-        label: "Actifs IT",
+        label: KYC_UI.IT_ASSETS,
         value: assetCount.toLocaleString("fr-FR"),
-        hint: "Articles en catalogue",
+        hint: KYC_UI.TRACKED_ITEMS,
         icon: "HardDrive",
       },
       {
-        label: "En maintenance",
+        label: KYC_UI.STATUS,
         value: maintenanceCount.toLocaleString("fr-FR"),
-        hint: "Materiels suivis",
+        hint: KYC_UI.TRACKED_ITEMS,
         icon: "Wrench",
       },
       {
-        label: "Pannes ouvertes",
+        label: KYC_UI.OPEN_INCIDENTS,
         value: openIncidentCount.toLocaleString("fr-FR"),
-        hint: "A traiter",
+        hint: KYC_UI.OPEN_EXCLUDING_CLOSED,
         icon: "AlertTriangle",
       },
       {

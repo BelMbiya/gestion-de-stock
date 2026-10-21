@@ -30,6 +30,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { ui } from "@/lib/ui-styles";
+import { KYC_IN_STORE_COLUMNS, KYC_UI } from "@/lib/kyc-excel/terminology";
+
 type Department = {
   id: string;
   name: string;
@@ -143,19 +146,17 @@ export function TechniciansContent() {
   }
 
   return (
-    <section className="flex h-full min-h-0 flex-col gap-5 text-white">
-      <header className="flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/30 md:flex-row md:items-center md:justify-between">
+    <section className={ui.page}>
+      <header className={`${ui.header} md:flex md:items-center md:justify-between`}>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-[#6fb6ff]">
-            Techniciens IT
-          </p>
-          <h1 className="mt-2 text-3xl font-black">Equipe support et maintenance</h1>
-          <p className="mt-2 max-w-3xl text-sm text-slate-300">
+          <p className={ui.eyebrow}>Techniciens IT</p>
+          <h1 className={ui.title}>Equipe support et maintenance</h1>
+          <p className={`${ui.subtitle} mt-1 max-w-3xl`}>
             Gere les techniciens, managers IT et administrateurs assignables aux
             pannes, affectations et interventions terrain.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2 md:mt-0">
           <ExportPdfButton
             disabled={isLoading}
             filename="techniciens-it"
@@ -183,7 +184,7 @@ export function TechniciansContent() {
             title="Equipe support et maintenance"
           />
           <Button
-            className="w-fit bg-[#ff2f45] text-white hover:bg-[#ff4b5e]"
+            className={ui.btnPrimary}
             onClick={() => {
               setEditingId(null);
               setForm(emptyForm);
@@ -266,14 +267,14 @@ export function TechniciansContent() {
             />
             <div className="flex flex-wrap gap-2 md:col-span-2">
               <Button
-                className="flex-1 bg-[#ff2f45] text-white hover:bg-[#ff4b5e]"
+                className={`flex-1 ${ui.btnPrimary}`}
                 type="submit"
               >
                 {editingId ? "Enregistrer" : "Ajouter"}
               </Button>
               {editingId ? (
                 <Button
-                  className="border border-[#ff2f45]/40 bg-[#ff2f45]/20 text-[#ff9aa5] hover:bg-[#ff2f45]/30"
+                  className="bg-red-900/30 text-red-200 hover:bg-red-900/50"
                   onClick={async () => {
                     await handleDelete(editingId);
                     setEditingId(null);
@@ -291,63 +292,72 @@ export function TechniciansContent() {
         </DialogContent>
       </Dialog>
 
-      <div className="grid gap-4 md:grid-cols-3">
-        <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-lg">
-              <UserCog className="size-5 text-[#6fb6ff]" />
+      <div className="grid gap-3 md:grid-cols-3">
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="flex items-center gap-2 text-base font-semibold">
+              <UserCog className="size-4 text-slate-400" />
               {technicians.length}
             </CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className={ui.subtitle}>
               Profils IT assignables
             </CardDescription>
           </CardHeader>
         </Card>
-        <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-          <CardHeader>
-            <CardTitle className="text-lg">
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="text-base font-semibold">
               {technicians.reduce((sum, technician) => sum + technician.activeIncidents, 0)}
             </CardTitle>
-            <CardDescription className="text-slate-400">
+            <CardDescription className={ui.subtitle}>
               Pannes actives assignees
             </CardDescription>
           </CardHeader>
         </Card>
-        <Card className="border-white/10 bg-[#11183b]/95 text-white ring-0">
-          <CardHeader>
-            <CardTitle className="text-lg">
+        <Card className={`${ui.panel} ring-0`}>
+          <CardHeader className={ui.panelHeader}>
+            <CardTitle className="text-base font-semibold">
               {technicians.reduce((sum, technician) => sum + technician.activeAssignments, 0)}
             </CardTitle>
-            <CardDescription className="text-slate-400">
-              Materiels suivis par agents
+            <CardDescription className={ui.subtitle}>
+              {KYC_IN_STORE_COLUMNS.ITEM} — {KYC_UI.USER}
             </CardDescription>
           </CardHeader>
         </Card>
       </div>
 
       <div className="relative">
-        <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
         <Input
-          className="h-11 border-white/10 bg-white/6 pl-11"
+          className={`${ui.input} pl-9`}
           onChange={(event) => setSearchQuery(event.target.value)}
           placeholder="Rechercher technicien, role, email ou departement..."
           value={searchQuery}
         />
       </div>
 
-      <Card className="min-h-0 flex-1 border-white/10 bg-[#11183b]/95 text-white ring-0">
-        <CardContent className="overflow-auto p-4">
+      <Card className={`${ui.panel} ${ui.tablePanel}`}>
+        <CardContent className={ui.tablePanelBody}>
           {isLoading ? (
-            <p className="rounded-xl bg-white/6 p-4 text-sm text-slate-300">
+            <p className="rounded-md bg-slate-800/50 p-4 text-sm text-slate-400">
               Chargement des techniciens...
             </p>
           ) : (
+            <div className={ui.tableWrap}>
             <Table>
               <TableHeader>
                 <TableRow className="border-white/10 hover:bg-transparent">
-                  {["Nom", "Email", "Role", "Departement", "Pannes", "Materiels", "Actions"].map(
+                  {[
+                    KYC_UI.NAME,
+                    "Email",
+                    "Role",
+                    KYC_UI.DEPARTMENT,
+                    KYC_UI.INCIDENT,
+                    KYC_IN_STORE_COLUMNS.ITEM,
+                    KYC_UI.ACTIONS,
+                  ].map(
                     (head) => (
-                      <TableHead className="text-slate-400" key={head}>
+                      <TableHead className="text-xs text-slate-500" key={head}>
                         {head}
                       </TableHead>
                     ),
@@ -356,11 +366,11 @@ export function TechniciansContent() {
               </TableHeader>
               <TableBody>
                 {filteredTechnicians.map((technician) => (
-                  <TableRow className="border-white/6 hover:bg-white/5" key={technician.id}>
-                    <TableCell className="font-bold">{technician.name}</TableCell>
+                  <TableRow className="border-white/6" key={technician.id}>
+                    <TableCell className="font-medium">{technician.name}</TableCell>
                     <TableCell className="text-slate-300">{technician.email}</TableCell>
                     <TableCell>
-                      <Badge className="bg-[#6fb6ff]/20 text-[#9fd0ff]">
+                      <Badge className="bg-slate-700 text-slate-200">
                         {roleLabels[technician.role] ?? technician.role}
                       </Badge>
                     </TableCell>
@@ -370,15 +380,17 @@ export function TechniciansContent() {
                     <TableCell>
                       <div className="flex gap-2">
                         <Button
-                          className="bg-white/10 text-white hover:bg-white/15"
+                          className={ui.btnSecondary}
                           onClick={() => handleEdit(technician)}
+                          size="sm"
                           type="button"
                         >
                           Modifier
                         </Button>
                         <Button
-                          className="border border-[#ff2f45]/40 bg-[#ff2f45]/20 text-[#ff9aa5] hover:bg-[#ff2f45]/30"
+                          className="bg-red-900/30 text-red-200 hover:bg-red-900/50"
                           onClick={() => handleDelete(technician.id)}
+                          size="sm"
                           type="button"
                         >
                           Supprimer
@@ -389,6 +401,7 @@ export function TechniciansContent() {
                 ))}
               </TableBody>
             </Table>
+            </div>
           )}
         </CardContent>
       </Card>

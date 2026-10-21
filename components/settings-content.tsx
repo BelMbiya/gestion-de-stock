@@ -29,6 +29,9 @@ import {
   TableRow,
 } from "@/components/ui/table";
 
+import { ui } from "@/lib/ui-styles";
+import { KYC_UI } from "@/lib/kyc-excel/terminology";
+
 type SettingType = "category" | "department" | "location";
 
 type SettingItem = {
@@ -121,41 +124,38 @@ export function SettingsContent() {
     label: string;
     type: SettingType;
   }> = [
-    { items: filterSettings(categories), label: "Categories", type: "category" },
-    { items: filterSettings(locations), label: "Localisations", type: "location" },
-    { items: filterSettings(departments), label: "Departements", type: "department" },
+    { items: filterSettings(categories), label: KYC_UI.CATEGORY, type: "category" },
+    { items: filterSettings(locations), label: KYC_UI.LOCATION, type: "location" },
+    { items: filterSettings(departments), label: KYC_UI.DEPARTMENT, type: "department" },
   ];
 
   return (
-    <section className="flex h-[calc(100dvh-11rem)] min-h-0 flex-col gap-5 text-white">
-      <header className="shrink-0 flex flex-col gap-4 rounded-[2rem] border border-white/10 bg-white/6 p-5 shadow-2xl shadow-black/30 md:flex-row md:items-center md:justify-between">
+    <section className={`${ui.page} h-[calc(100dvh-11rem)]`}>
+      <header className={`${ui.header} shrink-0 md:flex md:items-center md:justify-between`}>
         <div>
-          <p className="text-xs font-bold uppercase tracking-[0.35em] text-[#6fb6ff]">
-            Parametres
-          </p>
-          <h1 className="mt-2 text-3xl font-black">Referentiels</h1>
-          <p className="mt-2 max-w-2xl text-sm text-slate-300">
-            Gere les categories, localisations et departements utilises par les
-            autres modules.
+          <p className={ui.eyebrow}>{KYC_UI.SETTINGS}</p>
+          <h1 className={ui.title}>{KYC_UI.SETTINGS}</h1>
+          <p className={`${ui.subtitle} mt-1 max-w-2xl`}>
+            {KYC_UI.CATEGORY}, {KYC_UI.LOCATION} & {KYC_UI.DEPARTMENT}.
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-3">
+        <div className="mt-3 flex flex-wrap items-center gap-2 md:mt-0">
           <ExportPdfButton
             filename="referentiels-it"
             sections={groups.map((section) => ({
               title: section.label,
-              columns: ["Nom", "Code", "Description"],
+              columns: [KYC_UI.NAME, KYC_UI.CODE, "Description"],
               rows: section.items.map((item) => [
                 item.name,
                 item.code ?? "-",
                 item.description ?? "-",
               ]),
             }))}
-            subtitle="PROCO & Cie - Categories, localisations et departements"
+            subtitle={`PROCO & Cie - ${KYC_UI.CATEGORY}, ${KYC_UI.LOCATION}, ${KYC_UI.DEPARTMENT}`}
             title="Referentiels IT"
           />
           <Button
-            className="w-fit bg-[#ff2f45] text-white hover:bg-[#ff4b5e]"
+            className={ui.btnPrimary}
             onClick={() => {
               setEditingId(null);
               setForm(emptyForm);
@@ -193,16 +193,16 @@ export function SettingsContent() {
               }
               value={form.type}
             >
-              <option value="category">Categorie</option>
-              <option value="location">Localisation</option>
-              <option value="department">Departement</option>
+              <option value="category">{KYC_UI.CATEGORY}</option>
+              <option value="location">{KYC_UI.LOCATION}</option>
+              <option value="department">{KYC_UI.DEPARTMENT}</option>
             </select>
             <Input
               className="border-white/10 bg-white/6 md:col-span-2"
               onChange={(event) =>
                 setForm((value) => ({ ...value, name: event.target.value }))
               }
-              placeholder="Nom"
+              placeholder={KYC_UI.NAME}
               required
               value={form.name}
             />
@@ -212,7 +212,7 @@ export function SettingsContent() {
               onChange={(event) =>
                 setForm((value) => ({ ...value, code: event.target.value }))
               }
-              placeholder="Code localisation"
+              placeholder={`Code ${KYC_UI.LOCATION}`}
               required={form.type === "location"}
               value={form.code}
             />
@@ -229,14 +229,14 @@ export function SettingsContent() {
             />
             <div className="flex gap-2 md:col-span-2">
               <Button
-                className="flex-1 bg-[#ff2f45] text-white hover:bg-[#ff4b5e]"
+                className={`flex-1 ${ui.btnPrimary}`}
                 type="submit"
               >
                 {editingId ? "Enregistrer" : "Ajouter"}
               </Button>
               {editingId ? (
                 <Button
-                  className="bg-[#ff2f45]/20 text-[#ff7a88] hover:bg-[#ff2f45]/30"
+                  className="bg-red-900/30 text-red-200 hover:bg-red-900/50"
                   onClick={async () => {
                     await handleDelete(form.type, editingId);
                     setEditingId(null);
@@ -250,7 +250,7 @@ export function SettingsContent() {
               ) : null}
               {editingId ? (
                 <Button
-                  className="bg-white/10 text-white hover:bg-white/15"
+                  className={ui.btnSecondary}
                   onClick={() => {
                     setEditingId(null);
                     setForm(emptyForm);
@@ -267,24 +267,24 @@ export function SettingsContent() {
       </Dialog>
 
       <div className="relative shrink-0">
-        <Search className="absolute left-4 top-1/2 size-4 -translate-y-1/2 text-slate-400" />
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
         <Input
-          className="h-11 border-white/10 bg-white/6 pl-11"
+          className={`${ui.input} pl-9`}
           onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder="Rechercher categorie, localisation, departement..."
+          placeholder={`${KYC_UI.CATEGORY}, ${KYC_UI.LOCATION}, ${KYC_UI.DEPARTMENT}…`}
           value={searchQuery}
         />
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-4 xl:grid-cols-3 xl:items-stretch">
+      <div className="grid min-h-0 flex-1 gap-3 xl:grid-cols-3 xl:items-stretch">
         {groups.map((group) => (
           <Card
-            className="flex min-h-0 flex-col border-white/10 bg-[#11183b]/95 text-white ring-0"
+            className={`${ui.panel} flex min-h-0 flex-col ring-0`}
             key={group.type}
           >
-            <CardHeader className="shrink-0">
-              <CardTitle>{group.label}</CardTitle>
-              <CardDescription className="text-slate-400">
+            <CardHeader className={`${ui.panelHeader} shrink-0`}>
+              <CardTitle className="text-base font-semibold">{group.label}</CardTitle>
+              <CardDescription className={ui.subtitle}>
                 {group.items.length} element(s)
               </CardDescription>
             </CardHeader>
@@ -292,25 +292,23 @@ export function SettingsContent() {
               {group.items.length === 0 ? (
                 <p className="p-4 text-sm text-slate-400">Aucun element.</p>
               ) : (
+                <div className={ui.tableWrap}>
                 <Table>
-                  <TableHeader className="sticky top-0 z-10 bg-[#11183b]">
+                  <TableHeader>
                     <TableRow className="border-white/10 hover:bg-transparent">
-                      <TableHead className="text-slate-400">Nom</TableHead>
-                      <TableHead className="w-[22%] text-slate-400">Code</TableHead>
-                      <TableHead className="text-slate-400">Description</TableHead>
-                      <TableHead className="w-[9rem] text-slate-400">Actions</TableHead>
+                      <TableHead className="text-xs text-slate-500">Nom</TableHead>
+                      <TableHead className="w-[22%] text-xs text-slate-500">Code</TableHead>
+                      <TableHead className="text-xs text-slate-500">Description</TableHead>
+                      <TableHead className="w-[9rem] text-xs text-slate-500">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
                     {group.items.map((item) => (
-                      <TableRow
-                        className="border-white/6 hover:bg-white/5"
-                        key={item.id}
-                      >
+                      <TableRow className="border-white/6" key={item.id}>
                         <TableCell className="align-top font-medium text-white">
                           {item.name}
                         </TableCell>
-                        <TableCell className="align-top font-mono text-xs text-[#6fb6ff]">
+                        <TableCell className="align-top font-mono text-xs text-slate-400">
                           {item.code ?? "—"}
                         </TableCell>
                         <TableCell className="align-top text-sm text-slate-300">
@@ -319,14 +317,14 @@ export function SettingsContent() {
                         <TableCell className="align-top">
                           <div className="flex flex-col gap-1.5 sm:flex-row">
                             <Button
-                              className="h-8 bg-white/10 px-2 text-xs text-white hover:bg-white/15"
+                              className={`h-8 px-2 text-xs ${ui.btnSecondary}`}
                               onClick={() => handleEdit(group.type, item)}
                               type="button"
                             >
                               Modifier
                             </Button>
                             <Button
-                              className="h-8 bg-[#ff2f45]/20 px-2 text-xs text-[#ff7a88] hover:bg-[#ff2f45]/30"
+                              className="h-8 bg-red-900/30 px-2 text-xs text-red-200 hover:bg-red-900/50"
                               onClick={() => handleDelete(group.type, item.id)}
                               type="button"
                             >
@@ -338,6 +336,7 @@ export function SettingsContent() {
                     ))}
                   </TableBody>
                 </Table>
+                </div>
               )}
             </CardContent>
           </Card>

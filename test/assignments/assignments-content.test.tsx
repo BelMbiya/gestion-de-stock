@@ -2,9 +2,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { AssignmentsContent } from "@/components/assignments-content";
+import { KYC_IN_STORE_COLUMNS, KYC_UI } from "@/lib/kyc-excel/terminology";
+import { selectKycAsset } from "@/test/helpers/select-kyc-asset";
 
 const assignmentsPayload = {
-  assets: [{ id: "asset-1", name: "Cisco ISR 4331" }],
+  assets: [{ id: "asset-1", name: "Cisco ISR 4331", sku: "IT-RTR-015", assignable: true }],
   assignments: [
     {
       agent: "Berami Mbaya",
@@ -72,14 +74,12 @@ describe("AssignmentsContent", () => {
     render(<AssignmentsContent />);
 
     await screen.findByText("Cisco ISR 4331");
-    fireEvent.click(screen.getByRole("button", { name: "Allouer un materiel" }));
-    fireEvent.change(screen.getByLabelText("Materiel affecte"), {
-      target: { value: "asset-1" },
-    });
-    fireEvent.change(screen.getByLabelText("Agent beneficiaire"), {
+    fireEvent.click(screen.getByRole("button", { name: `Allouer ${KYC_IN_STORE_COLUMNS.ITEM}` }));
+    selectKycAsset("DESCRIPTION", "Cisco ISR 4331");
+    fireEvent.change(screen.getByLabelText("USER"), {
       target: { value: "user-1" },
     });
-    fireEvent.change(screen.getByLabelText("Departement beneficiaire"), {
+    fireEvent.change(screen.getByLabelText(KYC_UI.DEPARTMENT), {
       target: { value: "department-1" },
     });
     fireEvent.change(screen.getByLabelText("Etat affectation"), {

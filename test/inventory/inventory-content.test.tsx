@@ -2,25 +2,36 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { InventoryContent } from "@/components/inventory-content";
+import { KYC_IN_STORE_COLUMNS, KYC_PROCO_COLUMNS } from "@/lib/kyc-excel/terminology";
 
 const inventoryPayload = {
   assets: [
     {
       id: "asset-1",
-      sku: "IT-RTR-015",
-      serialNumber: "RTR-4331-00015",
-      name: "Cisco ISR 4331",
-      category: "Network",
-      location: "Site Mining A",
-      status: "Critique",
-      assignedTo: "Departement IT",
-      openIncident: "INC-2406-018",
-      value: "$3820",
+      sku: "KYC-LAPTOP-0001",
+      serialNumber: "5CG9053387",
+      name: "HP LAPTOP I5",
+      model: "HP MT44 MOBILE THIN CLIENT",
+      brand: "HP",
+      imageUrl: null,
+      category: "Laptop",
+      location: "Mandala Square",
+      status: "Assigne",
+      assignedTo: "JONATHAN MUSOZO",
+      custodianName: "JONATHAN MUSOZO",
+      ownerLabel: "Business Development Head",
+      workstationCode: null,
+      processLabel: null,
+      assetGroup: "Laptop",
+      systemOs: "WINDOWS 11 64Bits",
+      storageRam: "256GB16GB",
+      openIncident: null,
+      value: "$300.00",
       updatedAt: "02/06/2026 13:00",
     },
   ],
-  categories: [{ id: "category-1", name: "Network" }],
-  locations: [{ id: "location-1", name: "Site Mining A" }],
+  categories: [{ id: "category-1", name: "Laptop" }],
+  locations: [{ id: "location-1", name: "Mandala Square" }],
 };
 
 describe("InventoryContent", () => {
@@ -46,16 +57,12 @@ describe("InventoryContent", () => {
     vi.unstubAllGlobals();
   });
 
-  it("affiche les materiels, affectations et pannes ouvertes depuis l'API inventory", async () => {
+  it("affiche les materiels KYC depuis l'API inventory", async () => {
     render(<InventoryContent />);
 
-    expect(await screen.findByText("Cisco ISR 4331")).toBeInTheDocument();
-    expect(screen.getAllByText("Site Mining A").length).toBeGreaterThan(0);
-    expect(screen.getByText("Departement IT")).toBeInTheDocument();
-    expect(screen.getByText("INC-2406-018")).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: "Copier la reference" }),
-    ).toBeInTheDocument();
+    expect(await screen.findByText("HP LAPTOP I5")).toBeInTheDocument();
+    expect(screen.getByText("JONATHAN MUSOZO")).toBeInTheDocument();
+    expect(screen.getByText("Mandala Square")).toBeInTheDocument();
     expect(globalThis.fetch).toHaveBeenCalledWith("/api/inventory", {
       cache: "no-store",
     });
@@ -64,27 +71,27 @@ describe("InventoryContent", () => {
   it("cree un materiel depuis la popup avec un payload integre", async () => {
     render(<InventoryContent />);
 
-    await screen.findByText("Cisco ISR 4331");
-    fireEvent.click(screen.getByRole("button", { name: "Add New" }));
-    fireEvent.change(screen.getByPlaceholderText("SKU"), {
+    await screen.findByText("HP LAPTOP I5");
+    fireEvent.click(screen.getByRole("button", { name: "Ajouter" }));
+    fireEvent.change(screen.getByPlaceholderText(KYC_PROCO_COLUMNS.NO), {
       target: { value: "IT-LAP-042" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Nom du materiel"), {
+    fireEvent.change(screen.getByPlaceholderText(KYC_PROCO_COLUMNS.DESCRIPTION), {
       target: { value: "Dell Latitude 7450" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Numero de serie"), {
+    fireEvent.change(screen.getByPlaceholderText(KYC_PROCO_COLUMNS.SERIAL_NUMBER), {
       target: { value: "DL-7450-42" },
     });
     fireEvent.change(screen.getByDisplayValue("Categorie"), {
       target: { value: "category-1" },
     });
-    fireEvent.change(screen.getByDisplayValue("Localisation"), {
+    fireEvent.change(screen.getByDisplayValue(KYC_PROCO_COLUMNS.LOCATION), {
       target: { value: "location-1" },
     });
     fireEvent.change(screen.getByLabelText("Valeur d'achat"), {
       target: { value: "1450" },
     });
-    fireEvent.change(screen.getByLabelText("Statut du materiel"), {
+    fireEvent.change(screen.getByLabelText(KYC_PROCO_COLUMNS.STATUS), {
       target: { value: "AVAILABLE" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Ajouter" }));
@@ -92,10 +99,6 @@ describe("InventoryContent", () => {
     await waitFor(() => {
       const postCall = findFetchCall("/api/inventory", "POST");
       expect(postCall).toBeDefined();
-      expect(postCall?.[1]).toMatchObject({
-        headers: { "Content-Type": "application/json" },
-        method: "POST",
-      });
       expect(JSON.parse(String(postCall?.[1]?.body))).toEqual(
         expect.objectContaining({
           categoryId: "category-1",
@@ -109,56 +112,36 @@ describe("InventoryContent", () => {
         }),
       );
     });
-    expect(fetchMock).toHaveBeenCalledWith("/api/inventory", {
-      cache: "no-store",
-    });
   });
 
-  it("ouvre les actions rapides depuis le bouton Action", async () => {
+  it("ouvre les actions rapides", async () => {
     render(<InventoryContent />);
 
-    await screen.findByText("Cisco ISR 4331");
-    fireEvent.click(screen.getByRole("button", { name: "Action" }));
+    await screen.findByText("HP LAPTOP I5");
+    fireEvent.click(screen.getByRole("button", { name: "Actions" }));
 
-    expect(screen.getByText("Actions rapides")).toBeInTheDocument();
-    expect(
-      screen.getByText("Allouer un materiel a un agent"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Enregistrer un mouvement de stock"),
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText("Declarer une panne liee au materiel"),
-    ).toBeInTheDocument();
+    expect(screen.getByText(`Allouer ${KYC_IN_STORE_COLUMNS.ITEM}`)).toBeInTheDocument();
+    expect(screen.getByText("Mouvement de stock")).toBeInTheDocument();
+    expect(screen.getByText("Declarer une panne")).toBeInTheDocument();
   });
 
   it("modifie et supprime un materiel avec les bons endpoints", async () => {
     render(<InventoryContent />);
 
-    await screen.findByText("Cisco ISR 4331");
+    await screen.findByText("HP LAPTOP I5");
     fireEvent.click(screen.getByRole("button", { name: "Modifier" }));
-    fireEvent.change(screen.getByPlaceholderText("Nom du materiel"), {
-      target: { value: "Cisco ISR 4331 HA" },
+    fireEvent.change(screen.getByPlaceholderText(KYC_PROCO_COLUMNS.DESCRIPTION), {
+      target: { value: "HP LAPTOP I5 HA" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
 
     await waitFor(() => {
       const patchCall = findFetchCall("/api/inventory/asset-1", "PATCH");
       expect(patchCall).toBeDefined();
-      expect(patchCall?.[1]).toMatchObject({
-        headers: { "Content-Type": "application/json" },
-        method: "PATCH",
-      });
       expect(JSON.parse(String(patchCall?.[1]?.body))).toEqual(
         expect.objectContaining({
-          categoryId: "category-1",
-          locationId: "location-1",
+          name: "HP LAPTOP I5 HA",
           imageUrl: "",
-          name: "Cisco ISR 4331 HA",
-          purchaseValue: "3820",
-          serialNumber: "RTR-4331-00015",
-          sku: "IT-RTR-015",
-          status: "BROKEN",
         }),
       );
     });

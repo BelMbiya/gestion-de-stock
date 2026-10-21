@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { HistoryContent } from "@/components/history-content";
+import { selectKycAsset } from "@/test/helpers/select-kyc-asset";
 
 const historyPayload = {
   assets: [
@@ -75,9 +76,7 @@ describe("HistoryContent", () => {
     expect(screen.getByText("Incident identifie et diagnostic en cours.")).toBeInTheDocument();
     expect(screen.queryByText("Diagnostic")).not.toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText("Materiel"), {
-      target: { value: "asset-1" },
-    });
+    selectKycAsset("DESCRIPTION", "Cisco ISR 4331");
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith("/api/history?assetId=asset-1", {

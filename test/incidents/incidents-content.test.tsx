@@ -2,9 +2,10 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { IncidentsContent } from "@/components/incidents-content";
+import { selectKycAsset } from "@/test/helpers/select-kyc-asset";
 
 const incidentsPayload = {
-  assets: [{ id: "asset-1", name: "Cisco ISR 4331" }],
+  assets: [{ id: "asset-1", name: "Cisco ISR 4331", sku: "IT-RTR-015" }],
   incidents: [
     {
       id: "incident-1",
@@ -76,9 +77,7 @@ describe("IncidentsContent", () => {
     fireEvent.change(screen.getByPlaceholderText("Titre de la panne"), {
       target: { value: "Onduleur en alarme" },
     });
-    fireEvent.change(screen.getByDisplayValue("Materiel"), {
-      target: { value: "asset-1" },
-    });
+    selectKycAsset("DESCRIPTION", "Cisco ISR 4331", 1);
     fireEvent.change(screen.getByDisplayValue("Technicien"), {
       target: { value: "user-1" },
     });

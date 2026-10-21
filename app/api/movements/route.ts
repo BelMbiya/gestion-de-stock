@@ -6,6 +6,7 @@ import {
   StockMovementError,
   type ApplyStockMovementInput,
 } from "@/lib/apply-stock-movement";
+import { kycAssetListSelect } from "@/lib/kyc-excel/asset-select";
 import { prisma } from "@/lib/prisma";
 import {
   normalizeMovementType,
@@ -28,7 +29,10 @@ const getMovementsData = unstable_cache(
           movedAt: "desc",
         },
       }),
-      prisma.asset.findMany({ orderBy: { name: "asc" } }),
+      prisma.asset.findMany({
+        orderBy: { name: "asc" },
+        select: kycAssetListSelect,
+      }),
       prisma.location.findMany({ orderBy: { name: "asc" } }),
     ]);
 

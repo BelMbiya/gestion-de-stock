@@ -2,6 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SettingsContent } from "@/components/settings-content";
+import { KYC_UI } from "@/lib/kyc-excel/terminology";
 
 const settingsPayload = {
   categories: [
@@ -49,13 +50,13 @@ describe("SettingsContent", () => {
 
     expect(await screen.findByText("Datacenter Kinshasa")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Ajouter un referentiel" }));
-    fireEvent.change(screen.getByDisplayValue("Categorie"), {
+    fireEvent.change(screen.getByDisplayValue(KYC_UI.CATEGORY), {
       target: { value: "location" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Nom"), {
+    fireEvent.change(screen.getByPlaceholderText(KYC_UI.NAME), {
       target: { value: "Site Mining A" },
     });
-    fireEvent.change(screen.getByPlaceholderText("Code localisation"), {
+    fireEvent.change(screen.getByPlaceholderText(`Code ${KYC_UI.LOCATION}`), {
       target: { value: "MINE-A" },
     });
     fireEvent.change(screen.getByPlaceholderText("Description"), {
@@ -81,7 +82,7 @@ describe("SettingsContent", () => {
 
     await screen.findByText("Network");
     fireEvent.click(screen.getAllByRole("button", { name: "Modifier" })[0]);
-    fireEvent.change(screen.getByPlaceholderText("Nom"), {
+    fireEvent.change(screen.getByPlaceholderText(KYC_UI.NAME), {
       target: { value: "Network Core" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Enregistrer" }));
