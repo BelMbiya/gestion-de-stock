@@ -18,9 +18,10 @@ const MODELS = [
   "auditLog",
   "incident",
   "inventoryCheck",
-  "supportTicket",
   "category",
   "assetType",
+  "user",
+  "incidentUpdate",
 ] as const;
 
 export type FakeModelName = (typeof MODELS)[number];
@@ -170,5 +171,16 @@ export const person = (overrides: Partial<Row> = {}): Row => ({
   process: "INBOUND",
   departmentId: null,
   active: true,
+  ...overrides,
+});
+
+export const appUser = (overrides: Partial<Row> = {}): Row => ({
+  id: "user-manager",
+  email: "it.manager@procordc.com",
+  name: "Manager IT",
+  role: "IT_MANAGER",
+  active: true,
+  firebaseUid: "firebase-uid-manager",
+  departmentId: null,
   ...overrides,
 });

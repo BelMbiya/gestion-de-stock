@@ -115,13 +115,11 @@ export const KYC_FEUIL1_COLUMNS = {
 export const KYC_NAV = {
   DASHBOARD: "Tableau de bord",
   INVENTORY: KYC_SHEET_LABELS.PROCO_KYC_CALL_IT_EQUIPEMENT,
-  STOCK: KYC_SHEET_LABELS.IN_STORE,
-  ASSIGNMENTS: KYC_SHEET_LABELS.WORKSTATIONS,
-  TECHNICIANS: "Techniciens",
-  SUPPORT: "Assistance IT",
+  /** Onglets nommes par leur role ; les noms de feuilles Excel (IN STORE, Workstations) ne servent qu'a l'import. */
+  STOCK: "Stock",
+  ASSIGNMENTS: "Affectations",
   INCIDENTS: "Pannes",
   HISTORY: "Historique",
-  REPORTS: "Rapports",
   SETTINGS: "Parametres",
 } as const;
 

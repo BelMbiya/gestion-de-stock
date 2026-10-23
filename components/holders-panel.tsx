@@ -3,6 +3,7 @@
 import { Pencil, Search, UserPlus, UserRound, Users } from "lucide-react";
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
+import { readApiError } from "@/components/error-notice";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -54,15 +55,6 @@ type HolderForm = {
 const emptyForm: HolderForm = { type: "PERSON", fullName: "", matricule: "", process: "", departmentId: "" };
 const selectClass = "h-10 w-full rounded-lg border border-white/10 bg-[#11183b] px-3 text-sm text-white";
 
-async function readError(response: Response, fallback: string) {
-  try {
-    const payload = (await response.json()) as { error?: string };
-    return payload.error ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
 /** Onglet « Detenteurs » : personnes et collectifs qui detiennent du materiel. */
 export function HoldersPanel({ onChanged }: { onChanged: () => void }) {
   const [holders, setHolders] = useState<Holder[]>([]);
@@ -83,7 +75,7 @@ export function HoldersPanel({ onChanged }: { onChanged: () => void }) {
       setHolders(data.holders);
       setDepartments(data.departments);
     } else {
-      setError(await readError(response, "Impossible de charger les detenteurs."));
+      setError(await readApiError(response, "Impossible de charger les detenteurs."));
     }
     setIsLoading(false);
   }
@@ -117,7 +109,7 @@ export function HoldersPanel({ onChanged }: { onChanged: () => void }) {
       body: body ? JSON.stringify(body) : undefined,
     });
     if (!response.ok) {
-      setError(await readError(response, "Operation impossible."));
+      setError(await readApiError(response, "Operation impossible."));
       return false;
     }
     await load();
@@ -140,7 +132,7 @@ export function HoldersPanel({ onChanged }: { onChanged: () => void }) {
     if (response.ok) {
       setDetail((await response.json()) as HolderDetail);
     } else {
-      setError(await readError(response, "Fiche indisponible."));
+      setError(await readApiError(response, "Fiche indisponible."));
     }
   }
 

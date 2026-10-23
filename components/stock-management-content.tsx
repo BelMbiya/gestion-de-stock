@@ -50,7 +50,7 @@ import {
 } from "@/components/ui/table";
 
 import { ui } from "@/lib/ui-styles";
-import { KYC_IN_STORE_COLUMNS, KYC_OTHER_ASSETS_COLUMNS, KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
+import { KYC_IN_STORE_COLUMNS, KYC_NAV, KYC_OTHER_ASSETS_COLUMNS, KYC_UI } from "@/lib/kyc-excel/terminology";
 import { apiFetch } from "@/lib/api-client";
 
 type StockAsset = {
@@ -748,8 +748,8 @@ export function StockManagementContent() {
     <section className={`${ui.page} pb-4`}>
       <header className={`${ui.header} xl:flex xl:items-center xl:justify-between`}>
         <div>
-          <p className={ui.eyebrow}>{KYC_SHEET_LABELS.IN_STORE}</p>
-          <h1 className={ui.title}>{KYC_SHEET_LABELS.IN_STORE}</h1>
+          <p className={ui.eyebrow}>{KYC_NAV.STOCK}</p>
+          <h1 className={ui.title}>{KYC_NAV.STOCK}</h1>
           <p className={`${ui.subtitle} mt-1 max-w-3xl`}>
             {KYC_IN_STORE_COLUMNS.ITEM}, {KYC_IN_STORE_COLUMNS.NUMBER}, {KYC_UI.VENDOR},{" "}
             {KYC_UI.MOVEMENTS} & {KYC_UI.INVENTORY_CHECKS}.
@@ -785,7 +785,7 @@ export function StockManagementContent() {
               },
             ]}
             subtitle={`PROCO & Cie - ${filteredAssets.length} ${KYC_IN_STORE_COLUMNS.ITEM}(s)`}
-            title={KYC_SHEET_LABELS.IN_STORE}
+            title={KYC_NAV.STOCK}
           />
           <Button className={ui.btnSecondary} onClick={() => openMovement()} type="button">
             <Truck className="size-4" />

@@ -124,7 +124,6 @@ describe("S5 — suppression d'un actif", () => {
     ["assetAssignment", { id: "a", assetId: "laptop-1", status: "RETURNED" }],
     ["incident", { id: "i", assetId: "laptop-1" }],
     ["inventoryCheck", { id: "c", assetId: "laptop-1" }],
-    ["supportTicket", { id: "t", assetId: "laptop-1" }],
     ["auditLog", { id: "l", assetId: "laptop-1" }],
   ])("tient compte de l'historique %s", async (model, row) => {
     const db = createFakeStockDb({ asset: [laptop()], [model]: [row] });

@@ -69,29 +69,6 @@ enum IncidentStatus {
   CLOSED
 }
 
-enum SupportTicketCategory {
-  HARDWARE
-  SOFTWARE
-  NETWORK
-  ACCESS
-  OTHER
-}
-
-enum SupportTicketPriority {
-  LOW
-  MEDIUM
-  HIGH
-  URGENT
-}
-
-enum SupportTicketStatus {
-  OPEN
-  IN_PROGRESS
-  WAITING_USER
-  RESOLVED
-  CLOSED
-}
-
 /// Unitaire : un numero de serie, un detenteur. En vrac : une reference et une quantite.
 enum TrackingMode {
   SERIALIZED
@@ -123,46 +100,44 @@ enum AuditAction {
   TRANSFER
   STATUS_CHANGE
   INCIDENT_UPDATE
-  SUPPORT_TICKET_UPDATE
   SIGN_IN
   SIGN_OUT
 }
 
 model User {
-  id                String            @id @default(cuid())
-  firebaseUid       String            @unique
-  email             String            @unique
-  name              String?
-  photoUrl          String?
-  role              UserRole          @default(EMPLOYEE)
-  departmentId      String?
-  department        Department?       @relation(fields: [departmentId], references: [id])
-  createdAssets     Asset[]           @relation("AssetCreatedBy")
+  id                  String            @id @default(cuid())
+  firebaseUid         String            @unique
+  email               String            @unique
+  name                String?
+  photoUrl            String?
+  role                UserRole          @default(EMPLOYEE)
+  /// Acces revoque (depart, mutation) : la connexion est refusee, l'historique reste intact.
+  active              Boolean           @default(true)
+  departmentId        String?
+  department          Department?       @relation(fields: [departmentId], references: [id])
+  createdAssets       Asset[]           @relation("AssetCreatedBy")
   issuedAssignments   AssetAssignment[] @relation("AssignmentIssuedBy")
   returnedAssignments AssetAssignment[] @relation("AssignmentReturnedBy")
-  assignedIncidents Incident[]        @relation("IncidentAssignee")
-  reportedIncidents Incident[]        @relation("IncidentReporter")
-  incidentUpdates   IncidentUpdate[]
-  assignedSupportTickets SupportTicket[] @relation("SupportTicketAssignee")
-  requestedSupportTickets SupportTicket[] @relation("SupportTicketRequester")
-  supportTicketUpdates SupportTicketUpdate[]
-  stockMovements    StockMovement[]   @relation("MovementPerformedBy")
-  inventoryChecks   InventoryCheck[]  @relation("InventoryCheckedBy")
-  auditLogs         AuditLog[]
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  assignedIncidents   Incident[]        @relation("IncidentAssignee")
+  reportedIncidents   Incident[]        @relation("IncidentReporter")
+  incidentUpdates     IncidentUpdate[]
+  stockMovements      StockMovement[]   @relation("MovementPerformedBy")
+  inventoryChecks     InventoryCheck[]  @relation("InventoryCheckedBy")
+  auditLogs           AuditLog[]
+  createdAt           DateTime          @default(now())
+  updatedAt           DateTime          @updatedAt
 
   @@index([departmentId])
 }
 
 model Department {
-  id          String            @id @default(cuid())
-  name        String            @unique
+  id          String   @id @default(cuid())
+  name        String   @unique
   description String?
   users       User[]
   holders     Holder[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 }
 
 /// Personne ou collectif (ex. « AGENTS », postes partages du call center) qui detient du materiel.
@@ -285,7 +260,6 @@ model Asset {
   stockMovements  StockMovement[]
   inventoryChecks InventoryCheck[]
   incidents       Incident[]
-  supportTickets  SupportTicket[]
   auditLogs       AuditLog[]
   createdAt       DateTime          @default(now())
   updatedAt       DateTime          @updatedAt
@@ -431,52 +405,6 @@ model IncidentUpdate {
   @@index([incidentId])
   @@index([authorId])
   @@index([statusTo])
-}
-
-model SupportTicket {
-  id           String                @id @default(cuid())
-  reference    String                @unique
-  title        String
-  description  String?               @db.Text
-  category     SupportTicketCategory @default(OTHER)
-  priority     SupportTicketPriority @default(MEDIUM)
-  status       SupportTicketStatus   @default(OPEN)
-  requesterId  String?
-  requester    User?                 @relation("SupportTicketRequester", fields: [requesterId], references: [id])
-  assigneeId   String?
-  assignee     User?                 @relation("SupportTicketAssignee", fields: [assigneeId], references: [id])
-  assetId      String?
-  asset        Asset?                @relation(fields: [assetId], references: [id])
-  contactEmail String?
-  contactPhone String?
-  openedAt     DateTime              @default(now())
-  resolvedAt   DateTime?
-  closedAt     DateTime?
-  updates      SupportTicketUpdate[]
-  createdAt    DateTime              @default(now())
-  updatedAt    DateTime              @updatedAt
-
-  @@index([status])
-  @@index([priority])
-  @@index([category])
-  @@index([requesterId])
-  @@index([assigneeId])
-  @@index([assetId])
-}
-
-model SupportTicketUpdate {
-  id         String               @id @default(cuid())
-  ticketId   String
-  ticket     SupportTicket        @relation(fields: [ticketId], references: [id], onDelete: Cascade)
-  authorId   String?
-  author     User?                @relation(fields: [authorId], references: [id])
-  statusFrom SupportTicketStatus?
-  statusTo   SupportTicketStatus?
-  comment    String               @db.Text
-  createdAt  DateTime             @default(now())
-
-  @@index([ticketId])
-  @@index([authorId])
 }
 
 model MaintenancePart {

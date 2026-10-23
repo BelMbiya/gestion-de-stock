@@ -10,6 +10,9 @@ const admin = {
   role: "IT_MANAGER" as const,
 };
 
+/** Ligne stockee : l'indicateur « active » ne sort pas du resolveur. */
+const storedAdmin = { ...admin, active: true };
+
 function setup() {
   const store = {
     findByFirebaseUid: vi.fn<AppUserStore["findByFirebaseUid"]>().mockResolvedValue(null),
@@ -28,7 +31,7 @@ describe("resolveAppUser", () => {
   });
 
   it("retrouve l'utilisateur par firebaseUid sans re-liaison", async () => {
-    deps.store.findByFirebaseUid.mockResolvedValue(admin);
+    deps.store.findByFirebaseUid.mockResolvedValue(storedAdmin);
 
     const user = await deps.resolve({ uid: "uid-admin", email: admin.email, email_verified: true });
 
@@ -39,7 +42,7 @@ describe("resolveAppUser", () => {
   });
 
   it("relie un compte cree par seed/Techniciens via un email verifie", async () => {
-    deps.store.findByEmail.mockResolvedValue(admin);
+    deps.store.findByEmail.mockResolvedValue(storedAdmin);
 
     const user = await deps.resolve({
       uid: "real-google-uid",
@@ -53,7 +56,7 @@ describe("resolveAppUser", () => {
   });
 
   it("normalise l'email (casse, espaces) avant la recherche", async () => {
-    deps.store.findByEmail.mockResolvedValue(admin);
+    deps.store.findByEmail.mockResolvedValue(storedAdmin);
 
     await deps.resolve({
       uid: "real-google-uid",
@@ -65,7 +68,7 @@ describe("resolveAppUser", () => {
   });
 
   it("ATTAQUE : refuse l'usurpation par un email non verifie", async () => {
-    deps.store.findByEmail.mockResolvedValue(admin);
+    deps.store.findByEmail.mockResolvedValue(storedAdmin);
 
     const user = await deps.resolve({
       uid: "attacker-uid",
@@ -79,7 +82,7 @@ describe("resolveAppUser", () => {
   });
 
   it("ATTAQUE : refuse quand email_verified est absent du token", async () => {
-    deps.store.findByEmail.mockResolvedValue(admin);
+    deps.store.findByEmail.mockResolvedValue(storedAdmin);
 
     const user = await deps.resolve({ uid: "attacker-uid", email: admin.email });
 
@@ -103,5 +106,23 @@ describe("resolveAppUser", () => {
 
     expect(user).toBeNull();
     expect(deps.store.findByEmail).not.toHaveBeenCalled();
+  });
+
+  it("ATTAQUE : refuse un compte desactive deja relie (acces revoque)", async () => {
+    deps.store.findByFirebaseUid.mockResolvedValue({ ...admin, active: false });
+
+    const user = await deps.resolve({ uid: "uid-admin", email: admin.email, email_verified: true });
+
+    expect(user).toBeNull();
+    expect(deps.store.findByEmail).not.toHaveBeenCalled();
+  });
+
+  it("ATTAQUE : refuse de relier un compte desactive via son email", async () => {
+    deps.store.findByEmail.mockResolvedValue({ ...admin, active: false });
+
+    const user = await deps.resolve({ uid: "new-uid", email: admin.email, email_verified: true });
+
+    expect(user).toBeNull();
+    expect(deps.store.linkFirebaseUid).not.toHaveBeenCalled();
   });
 });

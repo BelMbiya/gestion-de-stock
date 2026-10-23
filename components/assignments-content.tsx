@@ -4,6 +4,7 @@ import { AlertTriangle, ArrowLeftRight, CalendarClock, ClipboardCheck, PackageCh
 import { FormEvent, useEffect, useMemo, useState } from "react";
 
 import { AssetSearchSelect } from "@/components/asset-search-select";
+import { ErrorNotice, readApiError } from "@/components/error-notice";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { HolderSearchSelect, type HolderOption } from "@/components/holder-search-select";
 import { HoldersPanel } from "@/components/holders-panel";
@@ -14,7 +15,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiFetch } from "@/lib/api-client";
-import { KYC_IN_STORE_COLUMNS, KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
+import { KYC_IN_STORE_COLUMNS, KYC_NAV, KYC_UI } from "@/lib/kyc-excel/terminology";
 import { ui } from "@/lib/ui-styles";
 
 type AssetOption = {
@@ -82,24 +83,6 @@ const selectClass = "h-10 w-full rounded-lg border border-white/10 bg-[#11183b] 
 const dialogClass =
   "w-[min(calc(100vw-2rem),44rem)] max-w-none border-white/10 bg-[#11183b] p-6 text-white sm:max-w-none";
 const today = () => new Date().toISOString().slice(0, 10);
-
-async function readError(response: Response, fallback: string) {
-  try {
-    const payload = (await response.json()) as { error?: string };
-    return payload.error ?? fallback;
-  } catch {
-    return fallback;
-  }
-}
-
-function ErrorNotice({ message }: { message: string | null }) {
-  if (!message) return null;
-  return (
-    <p className="rounded-md border border-red-900/40 bg-red-950/30 px-3 py-2 text-sm text-red-200 md:col-span-2" role="alert">
-      {message}
-    </p>
-  );
-}
 
 function ReturnAlertBadge({ assignment }: { assignment: Assignment }) {
   if (!assignment.returnAlert || !assignment.returnAlertLabel) return null;
@@ -209,7 +192,7 @@ export function AssignmentsContent() {
     if (response.ok) {
       setData((await response.json()) as AssignmentsData);
     } else {
-      setError(await readError(response, "Impossible de charger les affectations."));
+      setError(await readApiError(response, "Impossible de charger les affectations."));
     }
     setIsLoading(false);
   }
@@ -247,7 +230,7 @@ export function AssignmentsContent() {
       body: JSON.stringify(body),
     });
     if (!response.ok) {
-      setError(await readError(response, "Operation impossible."));
+      setError(await readApiError(response, "Operation impossible."));
       return false;
     }
     await load();
@@ -291,7 +274,7 @@ export function AssignmentsContent() {
       <header className={`${ui.header} md:flex md:items-center md:justify-between`}>
         <div>
           <p className={ui.eyebrow}>Affectations</p>
-          <h1 className={ui.title}>{KYC_SHEET_LABELS.WORKSTATIONS}</h1>
+          <h1 className={ui.title}>{KYC_NAV.ASSIGNMENTS}</h1>
           <p className={`${ui.subtitle} mt-1 max-w-3xl`}>
             <strong className="text-white">Dotation</strong> : materiel remis sans date de retour.{" "}
             <strong className="text-white">Pret</strong> : retour a date fixe, alerte 5 jours avant. Un materiel se{" "}
@@ -319,7 +302,7 @@ export function AssignmentsContent() {
               },
             ]}
             subtitle={`PROCO & Cie - ${filtered.length} affectation(s)`}
-            title={KYC_SHEET_LABELS.WORKSTATIONS}
+            title={KYC_NAV.ASSIGNMENTS}
           />
           <Button
             className={ui.btnPrimary}

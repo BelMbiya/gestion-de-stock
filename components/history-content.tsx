@@ -135,9 +135,9 @@ export function HistoryContent() {
 
   useEffect(() => {
     async function loadTechnicians() {
-      const response = await apiFetch("/api/technicians", { cache: "no-store" });
-      const data: { technicians: TechnicianOption[] } = await response.json();
-      setTechnicians(data.technicians.map(({ id, name }) => ({ id, name })));
+      const response = await apiFetch("/api/users", { cache: "no-store" });
+      const data: { users: TechnicianOption[] } = await response.json();
+      setTechnicians(data.users.map(({ id, name }) => ({ id, name })));
     }
     void loadTechnicians();
   }, []);

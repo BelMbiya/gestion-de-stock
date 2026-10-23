@@ -1,16 +1,6 @@
 "use client";
 
-import {
-  FileText,
-  Headphones,
-  History,
-  LayoutDashboard,
-  Package,
-  Settings,
-  UserCheck,
-  UsersRound,
-  Wrench,
-} from "lucide-react";
+import { History, LayoutDashboard, Package, Settings, UserCheck, Wrench } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -25,18 +15,14 @@ const navItems = [
   { label: KYC_NAV.DASHBOARD, icon: LayoutDashboard, href: "/", badge: null as string | null },
   { label: KYC_NAV.STOCK, icon: Package, href: "/inventory", badge: "stock" },
   { label: KYC_NAV.ASSIGNMENTS, icon: UserCheck, href: "/affectations", badge: "assignments" },
-  { label: KYC_NAV.TECHNICIANS, icon: UsersRound, href: "/techniciens", badge: null },
-  { label: KYC_NAV.SUPPORT, icon: Headphones, href: "/assistance", badge: "support" },
   { label: KYC_NAV.INCIDENTS, icon: Wrench, href: "/pannes", badge: "incidents" },
   { label: KYC_NAV.HISTORY, icon: History, href: "/historique", badge: null },
-  { label: KYC_NAV.REPORTS, icon: FileText, href: "/rapports", badge: null },
   { label: KYC_NAV.SETTINGS, icon: Settings, href: "/parametres", badge: null },
 ];
 
 export function DashboardLayout({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const [openIncidents, setOpenIncidents] = useState(0);
-  const [openSupportTickets, setOpenSupportTickets] = useState(0);
   const [assignmentAlerts, setAssignmentAlerts] = useState(0);
   const [stockAlerts, setStockAlerts] = useState(0);
 
@@ -46,7 +32,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
       if (response.ok) {
         const data = await response.json();
         setOpenIncidents(data.openIncidents ?? 0);
-        setOpenSupportTickets(data.openSupportTickets ?? 0);
         setAssignmentAlerts(data.assignmentReturnAlerts?.count ?? 0);
         setStockAlerts(data.stockAlerts?.count ?? 0);
       }
@@ -107,11 +92,6 @@ export function DashboardLayout({ children }: { children: ReactNode }) {
                 {item.badge === "assignments" && assignmentAlerts > 0 ? (
                   <Badge className="bg-amber-500 px-1.5 text-slate-900">
                     {assignmentAlerts}
-                  </Badge>
-                ) : null}
-                {item.badge === "support" && openSupportTickets > 0 ? (
-                  <Badge className="bg-amber-500 px-1.5 text-slate-900">
-                    {openSupportTickets}
                   </Badge>
                 ) : null}
                 {item.badge === "incidents" && openIncidents > 0 ? (

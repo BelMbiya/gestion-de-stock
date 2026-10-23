@@ -4,6 +4,7 @@ import { Search } from "lucide-react";
 import { FormEvent, useEffect, useState } from "react";
 
 import { ExportPdfButton } from "@/components/export-pdf-button";
+import { UsersPanel } from "@/components/users-panel";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -49,7 +50,8 @@ const emptyForm = {
   type: "category" as SettingType,
 };
 
-export function SettingsContent() {
+/** Referentiels qui alimentent les formulaires metier (categories, localisations, departements). */
+function ReferentialsPanel() {
   const [categories, setCategories] = useState<SettingItem[]>([]);
   const [departments, setDepartments] = useState<SettingItem[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -131,16 +133,12 @@ export function SettingsContent() {
   ];
 
   return (
-    <section className={`${ui.page} h-[calc(100dvh-11rem)]`}>
-      <header className={`${ui.header} shrink-0 md:flex md:items-center md:justify-between`}>
-        <div>
-          <p className={ui.eyebrow}>{KYC_UI.SETTINGS}</p>
-          <h1 className={ui.title}>{KYC_UI.SETTINGS}</h1>
-          <p className={`${ui.subtitle} mt-1 max-w-2xl`}>
-            {KYC_UI.CATEGORY}, {KYC_UI.LOCATION} & {KYC_UI.DEPARTMENT}.
-          </p>
-        </div>
-        <div className="mt-3 flex flex-wrap items-center gap-2 md:mt-0">
+    <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div className="flex shrink-0 flex-wrap items-center justify-between gap-2">
+        <p className={ui.subtitle}>
+          {KYC_UI.CATEGORY}, {KYC_UI.LOCATION} & {KYC_UI.DEPARTMENT} : ces listes alimentent les formulaires.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
           <ExportPdfButton
             filename="referentiels-it"
             sections={groups.map((section) => ({
@@ -167,7 +165,7 @@ export function SettingsContent() {
             Ajouter un referentiel
           </Button>
         </div>
-      </header>
+      </div>
 
       <Dialog onOpenChange={setIsFormOpen} open={isFormOpen}>
         <DialogContent className="w-[min(calc(100vw-2rem),46rem)] max-w-none border-white/10 bg-[#11183b] p-6 text-white sm:max-w-none">
@@ -343,6 +341,46 @@ export function SettingsContent() {
           </Card>
         ))}
       </div>
+    </div>
+  );
+}
+
+export type SettingsTab = "referentials" | "users";
+
+const tabs: Array<{ label: string; value: SettingsTab }> = [
+  { label: "Referentiels", value: "referentials" },
+  { label: "Utilisateurs", value: "users" },
+];
+
+/** Parametres : referentiels metier et comptes autorises (ex-onglet Techniciens). */
+export function SettingsContent({ initialTab = "referentials" }: { initialTab?: SettingsTab }) {
+  const [tab, setTab] = useState<SettingsTab>(initialTab);
+
+  return (
+    <section className={ui.page}>
+      <header className={`${ui.header} shrink-0`}>
+        <p className={ui.eyebrow}>{KYC_UI.SETTINGS}</p>
+        <h1 className={ui.title}>{KYC_UI.SETTINGS}</h1>
+      </header>
+
+      <div className="flex shrink-0 gap-1 border-b border-white/10" role="tablist">
+        {tabs.map(({ label, value }) => (
+          <button
+            aria-selected={tab === value}
+            className={`-mb-px border-b-2 px-3 py-2 text-sm font-medium transition-colors ${
+              tab === value ? "border-red-500 text-white" : "border-transparent text-slate-400 hover:text-slate-200"
+            }`}
+            key={value}
+            onClick={() => setTab(value)}
+            role="tab"
+            type="button"
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === "users" ? <UsersPanel /> : <ReferentialsPanel />}
     </section>
   );
 }

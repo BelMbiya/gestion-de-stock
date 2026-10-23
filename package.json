@@ -16,7 +16,9 @@
     "postinstall": "prisma generate",
     "db:backup": "tsx scripts/backup-db.ts",
     "db:migration-report": "tsx scripts/stock-migration-report.ts",
-    "db:codes-report": "tsx scripts/asset-codes-report.ts"
+    "db:codes-report": "tsx scripts/asset-codes-report.ts",
+    "db:support-export": "tsx scripts/support-tickets-export.ts",
+    "db:lot5-report": "tsx scripts/lot5-report.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

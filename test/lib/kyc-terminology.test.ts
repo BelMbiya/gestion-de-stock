@@ -11,7 +11,8 @@ describe("kyc terminology", () => {
   it("utilise DESCRIPTION comme libelle article Excel", () => {
     expect(KYC_UI.DESCRIPTION).toBe("DESCRIPTION");
     expect(KYC_UI.SERIAL_NUMBER).toBe("SERIAL NUMBER");
-    expect(KYC_NAV.STOCK).toBe(KYC_SHEET_LABELS.IN_STORE);
+    expect(KYC_NAV.STOCK).toBe("Stock");
+    expect(KYC_SHEET_LABELS.IN_STORE).toBe("IN STORE");
     expect(KYC_NAV.INVENTORY).toBe(KYC_SHEET_LABELS.PROCO_KYC_CALL_IT_EQUIPEMENT);
   });
 

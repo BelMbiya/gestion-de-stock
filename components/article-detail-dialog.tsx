@@ -19,7 +19,7 @@ import {
 import {
   KYC_IN_STORE_COLUMNS,
   KYC_OTHER_ASSETS_COLUMNS,
-  KYC_SHEET_LABELS,
+  KYC_NAV,
   KYC_UI,
 } from "@/lib/kyc-excel/terminology";
 
@@ -188,7 +188,7 @@ export function ArticleDetailDialog({
 
           <section className="mb-5">
             <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-slate-400">
-              {KYC_SHEET_LABELS.IN_STORE}
+              {KYC_NAV.STOCK}
             </h3>
             <div className="grid gap-4 sm:grid-cols-2">
               <DetailField label="Mode de suivi" value={asset.trackingModeLabel} />

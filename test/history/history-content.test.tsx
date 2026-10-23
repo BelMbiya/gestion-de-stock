@@ -43,7 +43,7 @@ const historyPayload = {
 };
 
 const techniciansPayload = {
-  technicians: [{ id: "tech-1", name: "Technicien Reseau" }],
+  users: [{ id: "tech-1", name: "Technicien Reseau" }],
 };
 
 vi.mock("@/lib/pdf-export", () => ({
@@ -57,7 +57,7 @@ describe("HistoryContent", () => {
     fetchMock.mockImplementation((url: string) =>
       Promise.resolve({
         ok: true,
-        json: async () => (url.includes("/api/technicians") ? techniciansPayload : historyPayload),
+        json: async () => (url.includes("/api/users") ? techniciansPayload : historyPayload),
       }),
     );
     vi.stubGlobal("fetch", fetchMock);

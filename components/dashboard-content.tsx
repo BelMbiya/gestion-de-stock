@@ -20,7 +20,7 @@ import {
 } from "@/lib/incident-resolution";
 
 import { CopyReferenceButton } from "@/components/copy-reference-button";
-import { ExportPdfButton } from "@/components/export-pdf-button";
+import { FullReportExport } from "@/components/full-report-export";
 import { Badge } from "@/components/ui/badge";
 import {
   Card,
@@ -41,7 +41,7 @@ import {
 } from "@/components/ui/table";
 
 import { ui } from "@/lib/ui-styles";
-import { KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
+import { KYC_NAV, KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
 import { apiFetch } from "@/lib/api-client";
 
 type DashboardStat = {
@@ -185,63 +185,10 @@ export function DashboardContent() {
           <div>
             <p className={ui.eyebrow}>{KYC_UI.DASHBOARD}</p>
             <h2 className={ui.title}>
-              {KYC_SHEET_LABELS.IN_STORE}, {KYC_UI.INCIDENT} & {KYC_UI.STATUS}
+              {KYC_NAV.STOCK}, {KYC_UI.INCIDENT} & {KYC_UI.STATUS}
             </h2>
           </div>
-          <ExportPdfButton
-            filename="dashboard-it"
-            sections={[
-              {
-                title: "Indicateurs",
-                columns: [KYC_UI.INDICATOR, KYC_UI.VALUE, KYC_UI.DETAIL],
-                rows: data.stats.map((stat) => [stat.label, stat.value, stat.hint]),
-              },
-              {
-                title: KYC_SHEET_LABELS.PROCO_KYC_CALL_IT_EQUIPEMENT,
-                columns: [
-                  KYC_UI.NO,
-                  KYC_UI.DESCRIPTION,
-                  KYC_UI.CATEGORY,
-                  KYC_UI.NUMBER,
-                  KYC_UI.LOCATION,
-                  KYC_UI.RELATIVE_VALUE,
-                  KYC_UI.STATUS,
-                ],
-                rows: filteredInventoryItems.map((item) => [
-                  item.sku,
-                  item.title,
-                  item.category,
-                  item.qty,
-                  item.location,
-                  item.value,
-                  item.status,
-                ]),
-              },
-              {
-                title: KYC_UI.INCIDENT,
-                columns: [
-                  KYC_UI.REFERENCE,
-                  KYC_UI.DESCRIPTION,
-                  KYC_UI.INCIDENT,
-                  KYC_UI.TECHNICIAN,
-                  KYC_UI.SEVERITY,
-                  KYC_UI.STATUS,
-                  KYC_UI.PROGRESS,
-                ],
-                rows: data.incidents.map((incident) => [
-                  incident.id,
-                  incident.asset,
-                  incident.issue,
-                  incident.owner,
-                  incident.severity,
-                  incident.status,
-                  `${incident.progress}%`,
-                ]),
-              },
-            ]}
-            subtitle={`PROCO & Cie - Genere le ${new Date().toLocaleString("fr-FR")}`}
-            title="Tableau de bord IT Inventory"
-          />
+          <FullReportExport />
         </header>
 
         <div className="grid shrink-0 gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
@@ -272,7 +219,7 @@ export function DashboardContent() {
                 {KYC_SHEET_LABELS.PROCO_KYC_CALL_IT_EQUIPEMENT}
               </CardTitle>
               <CardDescription className={ui.subtitle}>
-                {KYC_SHEET_LABELS.IN_STORE} — {KYC_UI.LOCATION} & {KYC_UI.STATUS}.
+                {KYC_NAV.STOCK} — {KYC_UI.LOCATION} & {KYC_UI.STATUS}.
               </CardDescription>
             </div>
             <div className="relative">

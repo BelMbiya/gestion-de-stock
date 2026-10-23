@@ -8,7 +8,7 @@ import { buildStockAlerts } from "@/lib/stock/stock-summary";
 export const dynamic = "force-dynamic";
 
 export const GET = withAuth(async () => {
-  const [openIncidents, assets, loans, openSupportTickets] = await Promise.all([
+  const [openIncidents, assets, loans] = await Promise.all([
     prisma.incident.count({ where: { status: { notIn: ["RESOLVED", "CLOSED"] } } }),
     prisma.asset.findMany({
       where: { trackingMode: "BULK" },
@@ -18,7 +18,6 @@ export const GET = withAuth(async () => {
       where: { status: "ACTIVE", kind: "LOAN", expectedReturnAt: { not: null } },
       include: { asset: true, holder: true },
     }),
-    prisma.supportTicket.count({ where: { status: { notIn: ["RESOLVED", "CLOSED"] } } }),
   ]);
 
   const assetsById = new Map(assets.map((asset) => [asset.id, asset]));
@@ -45,7 +44,6 @@ export const GET = withAuth(async () => {
 
   return NextResponse.json({
     openIncidents,
-    openSupportTickets,
     stockAlerts: { count: stockAlerts.length, items: stockAlerts },
     assignmentReturnAlerts: { count: assignmentReturnAlerts.length, items: assignmentReturnAlerts },
   });

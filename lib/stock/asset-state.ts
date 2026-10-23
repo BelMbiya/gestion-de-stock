@@ -108,7 +108,6 @@ export async function assertAssetDeletable(tx: Prisma.TransactionClient, assetId
     tx.assetAssignment.count({ where: { assetId } }),
     tx.incident.count({ where: { assetId } }),
     tx.inventoryCheck.count({ where: { assetId } }),
-    tx.supportTicket.count({ where: { assetId } }),
     // La trace de creation seule n'est pas un historique d'utilisation.
     tx.auditLog.count({ where: { assetId, action: { not: "CREATE" } } }),
   ]);
