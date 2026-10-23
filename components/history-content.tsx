@@ -1,31 +1,18 @@
 "use client";
 
-import { Clock, History, Search } from "lucide-react";
+import { Clock, RotateCcw, Search } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
 import { AssetSearchSelect } from "@/components/asset-search-select";
 import { ExportPdfButton } from "@/components/export-pdf-button";
 import { Badge } from "@/components/ui/badge";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-
-import { ui } from "@/lib/ui-styles";
-import { KYC_SHEET_LABELS, KYC_UI } from "@/lib/kyc-excel/terminology";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { apiFetch } from "@/lib/api-client";
+import { KYC_UI } from "@/lib/kyc-excel/terminology";
+import { ui } from "@/lib/ui-styles";
 
 type HistoryAsset = {
   category: string;
@@ -39,6 +26,7 @@ type HistoryAsset = {
 
 type HistoryEvent = {
   asset: string;
+  assetCode?: string;
   assetId: string;
   date: string;
   detail: string;
@@ -54,64 +42,52 @@ type HistoryData = {
   events: HistoryEvent[];
 };
 
-type TechnicianOption = {
-  id: string;
-  name: string;
-};
+type TechnicianOption = { id: string; name: string };
 
+/** « Personnalisee » remplace l'ancienne date precise et l'intervalle (meme date Du / Au = un seul jour). */
 const periodOptions = [
   { label: "Toute periode", value: "" },
   { label: "Aujourd'hui", value: "day" },
   { label: "7 derniers jours", value: "week" },
   { label: "30 derniers jours", value: "month" },
   { label: "12 derniers mois", value: "year" },
+  { label: "Personnalisee…", value: "custom" },
 ] as const;
 
+const selectClass = `${ui.input} h-10 w-full rounded-md px-3 text-sm text-white`;
+
+const typeTones: Record<string, string> = {
+  Panne: "bg-red-900/40 text-red-200",
+  "Suivi panne": "bg-red-900/25 text-red-200",
+  Affectation: "bg-sky-900/40 text-sky-200",
+  Mouvement: "bg-slate-700 text-slate-200",
+};
+
 function TypeBadge({ type }: { type: string }) {
-  if (type === "Panne" || type === "Suivi panne") {
-    return <Badge className="bg-red-900/40 text-red-200">{type}</Badge>;
-  }
-
-  if (type === "Affectation") {
-    return <Badge className="bg-slate-700 text-slate-200">{type}</Badge>;
-  }
-
-  return <Badge className="bg-slate-800 text-slate-300">{type}</Badge>;
+  return <Badge className={typeTones[type] ?? "bg-slate-800 text-slate-300"}>{type}</Badge>;
 }
 
 function buildHistoryQuery(params: {
   assetId: string;
-  date: string;
-  endDate: string;
+  technicianId: string;
   period: string;
   startDate: string;
-  technicianId: string;
+  endDate: string;
 }) {
   const search = new URLSearchParams();
-
-  if (params.assetId) {
-    search.set("assetId", params.assetId);
+  if (params.assetId) search.set("assetId", params.assetId);
+  if (params.technicianId) search.set("technicianId", params.technicianId);
+  if (params.period === "custom") {
+    if (params.startDate) search.set("startDate", params.startDate);
+    if (params.endDate) search.set("endDate", params.endDate);
+  } else if (params.period) {
+    search.set("period", params.period);
   }
-  if (params.technicianId) {
-    search.set("technicianId", params.technicianId);
-  }
-  if (params.date) {
-    search.set("date", params.date);
-  } else {
-    if (params.period) {
-      search.set("period", params.period);
-    }
-    if (params.startDate) {
-      search.set("startDate", params.startDate);
-    }
-    if (params.endDate) {
-      search.set("endDate", params.endDate);
-    }
-  }
-
   const query = search.toString();
   return query ? `?${query}` : "";
 }
+
+const plural = (count: number, word: string) => `${count} ${word}${count > 1 ? "s" : ""}`;
 
 export function HistoryContent() {
   const [assets, setAssets] = useState<HistoryAsset[]>([]);
@@ -122,7 +98,6 @@ export function HistoryContent() {
   const [selectedAssetId, setSelectedAssetId] = useState("");
   const [selectedTechnicianId, setSelectedTechnicianId] = useState("");
   const [period, setPeriod] = useState("");
-  const [specificDate, setSpecificDate] = useState("");
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
 
@@ -130,20 +105,12 @@ export function HistoryContent() {
     () =>
       buildHistoryQuery({
         assetId: selectedAssetId,
-        date: specificDate,
-        endDate,
+        technicianId: selectedTechnicianId,
         period,
         startDate,
-        technicianId: selectedTechnicianId,
+        endDate,
       }),
-    [
-      endDate,
-      period,
-      selectedAssetId,
-      selectedTechnicianId,
-      specificDate,
-      startDate,
-    ],
+    [endDate, period, selectedAssetId, selectedTechnicianId, startDate],
   );
 
   useEffect(() => {
@@ -153,7 +120,6 @@ export function HistoryContent() {
       setIsLoading(true);
       const response = await apiFetch(`/api/history${historyQuery}`, { cache: "no-store" });
       const data: HistoryData = await response.json();
-
       if (!cancelled) {
         setAssets(data.assets);
         setEvents(data.events);
@@ -162,7 +128,6 @@ export function HistoryContent() {
     }
 
     void loadHistory();
-
     return () => {
       cancelled = true;
     };
@@ -171,28 +136,18 @@ export function HistoryContent() {
   useEffect(() => {
     async function loadTechnicians() {
       const response = await apiFetch("/api/technicians", { cache: "no-store" });
-      const data: { technicians: { id: string; name: string }[] } =
-        await response.json();
-      setTechnicians(
-        data.technicians.map((technician) => ({
-          id: technician.id,
-          name: technician.name,
-        })),
-      );
+      const data: { technicians: TechnicianOption[] } = await response.json();
+      setTechnicians(data.technicians.map(({ id, name }) => ({ id, name })));
     }
-
     void loadTechnicians();
   }, []);
 
   const filteredEvents = useMemo(() => {
     const query = searchQuery.toLowerCase().trim();
-
-    if (!query) {
-      return events;
-    }
-
+    if (!query) return events;
     return events.filter((event) =>
-      [event.asset, event.date, event.detail, event.owner, event.title, event.type]
+      [event.assetCode, event.asset, event.date, event.detail, event.metadata, event.owner, event.title, event.type]
+        .filter(Boolean)
         .join(" ")
         .toLowerCase()
         .includes(query),
@@ -200,62 +155,48 @@ export function HistoryContent() {
   }, [events, searchQuery]);
 
   const selectedAsset = assets.find((asset) => asset.id === selectedAssetId);
-  const selectedTechnician = technicians.find(
-    (technician) => technician.id === selectedTechnicianId,
-  );
+  const selectedTechnician = technicians.find((technician) => technician.id === selectedTechnicianId);
+  const periodLabel =
+    period === "custom"
+      ? `du ${startDate || "…"} au ${endDate || "…"}`
+      : periodOptions.find((option) => option.value === period)?.label ?? "Toute periode";
+  const hasFilters = Boolean(selectedAssetId || selectedTechnicianId || period || searchQuery);
 
-  const exportSubtitle = useMemo(() => {
-    const parts = [
-      `Genere le ${new Date().toLocaleString("fr-FR")}`,
-      selectedAsset ? `${KYC_UI.DESCRIPTION}: ${selectedAsset.name}` : `${KYC_UI.DESCRIPTION}: ${KYC_UI.ALL}`,
-      selectedTechnician
-        ? `Technicien: ${selectedTechnician.name}`
-        : "Technicien: tous",
-    ];
+  function resetFilters() {
+    setSelectedAssetId("");
+    setSelectedTechnicianId("");
+    setPeriod("");
+    setStartDate("");
+    setEndDate("");
+    setSearchQuery("");
+  }
 
-    if (specificDate) {
-      parts.push(`Date: ${specificDate}`);
-    } else if (period) {
-      const label = periodOptions.find((option) => option.value === period)?.label;
-      parts.push(`Periode: ${label ?? period}`);
-    } else if (startDate || endDate) {
-      parts.push(`Intervalle: ${startDate || "..."} -> ${endDate || "..."}`);
-    } else {
-      parts.push("Periode: complete");
-    }
-
-    return parts.join(" · ");
-  }, [
-    endDate,
-    period,
-    selectedAsset,
-    selectedTechnician,
-    specificDate,
-    startDate,
-  ]);
+  const exportSubtitle = [
+    `Genere le ${new Date().toLocaleString("fr-FR")}`,
+    `Materiel : ${selectedAsset ? `${selectedAsset.sku} ${selectedAsset.name}` : "tous"}`,
+    `Technicien : ${selectedTechnician?.name ?? "tous"}`,
+    `Periode : ${periodLabel}`,
+  ].join(" · ");
 
   return (
     <section className={ui.page}>
-      <header className={`${ui.header} xl:flex xl:items-center xl:justify-between`}>
-        <div>
-          <p className={ui.eyebrow}>{KYC_UI.HISTORY}</p>
+      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 pb-3">
+        <div className="min-w-0">
           <h1 className={ui.title}>{KYC_UI.HISTORY}</h1>
-          <p className={`${ui.subtitle} mt-1 max-w-3xl`}>
-            {KYC_UI.MOVEMENTS}, affectations et {KYC_UI.INCIDENT} par periode, {KYC_UI.DATE},{" "}
-            {KYC_UI.TECHNICIAN} ou {KYC_UI.DESCRIPTION}.
-          </p>
+          <p className={ui.subtitle}>Cycle de vie du parc : mouvements, affectations et pannes.</p>
         </div>
         <ExportPdfButton
           disabled={isLoading}
           filename="historique-materiel"
           sections={[
             {
-              columns: ["Date", "Type", KYC_UI.DESCRIPTION, "Titre", "Responsable", "Detail"],
+              columns: ["Date", "Type", "Code", "Materiel", "Evenement", "Par", "Detail"],
               rows: filteredEvents.map((event) => [
                 event.date,
                 event.type,
+                event.assetCode ?? "",
                 event.asset,
-                event.title,
+                [event.title, event.metadata].filter(Boolean).join(" — "),
                 event.owner,
                 event.detail,
               ]),
@@ -266,174 +207,119 @@ export function HistoryContent() {
         />
       </header>
 
-      <Card className={`${ui.panel} ring-0`}>
-        <CardHeader className={ui.panelHeader}>
-          <CardTitle className="text-base font-semibold">Filtres d&apos;historique</CardTitle>
-          <CardDescription className={ui.subtitle}>
-            Combinez periode, {KYC_UI.DATE}, {KYC_UI.TECHNICIAN} et {KYC_UI.DESCRIPTION} avant export.
-          </CardDescription>
-        </CardHeader>
-        <CardContent className={`${ui.panelBody} grid gap-3 md:grid-cols-2 xl:grid-cols-3`}>
-          <AssetSearchSelect
-            assets={assets}
-            emptyLabel={`${KYC_UI.ALL} — ${KYC_UI.DESCRIPTION}`}
-            label={KYC_UI.DESCRIPTION}
-            onValueChange={setSelectedAssetId}
-            value={selectedAssetId}
-          />
-          <label className="flex flex-col gap-2 text-sm text-slate-300">
-            Technicien
-            <select
-              className={`${ui.input} rounded-md px-3 text-white`}
-              onChange={(event) => setSelectedTechnicianId(event.target.value)}
-              value={selectedTechnicianId}
-            >
-              <option value="">Tous les techniciens</option>
-              {technicians.map((technician) => (
-                <option key={technician.id} value={technician.id}>
-                  {technician.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-2 text-sm text-slate-300">
-            Periode
-            <select
-              className={`${ui.input} rounded-md px-3 text-white`}
-              onChange={(event) => {
-                setPeriod(event.target.value);
-                if (event.target.value) {
-                  setSpecificDate("");
-                }
-              }}
-              value={period}
-            >
-              {periodOptions.map((option) => (
-                <option key={option.value || "all"} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="flex flex-col gap-2 text-sm text-slate-300">
-            Date precise
-            <Input
-              className={`${ui.input} text-white`}
-              onChange={(event) => {
-                setSpecificDate(event.target.value);
-                if (event.target.value) {
-                  setPeriod("");
-                  setStartDate("");
-                  setEndDate("");
-                }
-              }}
-              type="date"
-              value={specificDate}
+      <Card className={`${ui.panel} shrink-0 ring-0`}>
+        <CardContent className="space-y-3 p-3">
+          <div className="grid items-end gap-3 md:grid-cols-2 xl:grid-cols-[minmax(14rem,2fr)_minmax(10rem,1fr)_minmax(10rem,1fr)_minmax(14rem,2fr)_auto]">
+            <AssetSearchSelect
+              assets={assets}
+              emptyLabel={`${KYC_UI.ALL} — materiel`}
+              label="Materiel"
+              onValueChange={setSelectedAssetId}
+              placeholder="Code, nom, numero de serie…"
+              value={selectedAssetId}
             />
-          </label>
-          <label className="flex flex-col gap-2 text-sm text-slate-300">
-            Debut intervalle
-            <Input
-              className={`${ui.input} text-white`}
-              disabled={Boolean(specificDate)}
-              onChange={(event) => setStartDate(event.target.value)}
-              type="date"
-              value={startDate}
-            />
-          </label>
-          <label className="flex flex-col gap-2 text-sm text-slate-300">
-            Fin intervalle
-            <Input
-              className={`${ui.input} text-white`}
-              disabled={Boolean(specificDate)}
-              onChange={(event) => setEndDate(event.target.value)}
-              type="date"
-              value={endDate}
-            />
-          </label>
+            <label className="flex flex-col gap-1 text-xs text-slate-300">
+              Technicien
+              <select className={selectClass} onChange={(event) => setSelectedTechnicianId(event.target.value)} value={selectedTechnicianId}>
+                <option value="">Tous</option>
+                {technicians.map((technician) => (
+                  <option key={technician.id} value={technician.id}>
+                    {technician.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-slate-300">
+              Periode
+              <select className={selectClass} onChange={(event) => setPeriod(event.target.value)} value={period}>
+                {periodOptions.map((option) => (
+                  <option key={option.value || "all"} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1 text-xs text-slate-300">
+              Recherche
+              <span className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
+                <Input
+                  className={`${ui.input} h-10 pl-9 text-white`}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Type, detenteur, motif…"
+                  value={searchQuery}
+                />
+              </span>
+            </label>
+            <Button className={`h-10 ${ui.btnSecondary}`} disabled={!hasFilters} onClick={resetFilters} type="button">
+              <RotateCcw className="size-4" />
+              Reinitialiser
+            </Button>
+          </div>
+
+          {period === "custom" ? (
+            <div className="grid gap-3 sm:grid-cols-2 xl:w-1/2">
+              <label className="flex flex-col gap-1 text-xs text-slate-300">
+                Du
+                <Input className={`${ui.input} h-10 text-white`} max={endDate || undefined} onChange={(event) => setStartDate(event.target.value)} type="date" value={startDate} />
+              </label>
+              <label className="flex flex-col gap-1 text-xs text-slate-300">
+                Au
+                <Input className={`${ui.input} h-10 text-white`} min={startDate || undefined} onChange={(event) => setEndDate(event.target.value)} type="date" value={endDate} />
+              </label>
+            </div>
+          ) : null}
+
+          <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-400">
+            <span className="font-semibold text-slate-200">{plural(filteredEvents.length, "evenement")}</span>
+            <span>Materiel : {selectedAsset ? `${selectedAsset.sku} · ${selectedAsset.name}` : "tous"}</span>
+            <span>Technicien : {selectedTechnician?.name ?? "tous"}</span>
+            <span>Periode : {periodLabel}</span>
+          </p>
         </CardContent>
       </Card>
 
-      <div className="grid gap-3 md:grid-cols-3">
-        <Card className={`${ui.panel} ring-0`}>
-          <CardHeader className={ui.panelHeader}>
-            <CardTitle className="flex items-center gap-2 text-base font-semibold">
-              <History className="size-4 text-slate-400" />
-              {filteredEvents.length}
-            </CardTitle>
-            <CardDescription className={ui.subtitle}>
-              Evenements historises
-            </CardDescription>
-          </CardHeader>
-        </Card>
-        <Card className={`${ui.panel} ring-0 md:col-span-2`}>
-          <CardHeader className={ui.panelHeader}>
-            <CardTitle className="text-base font-semibold">
-              {selectedAsset?.name ?? KYC_UI.ALL_DESCRIPTIONS}
-            </CardTitle>
-            <CardDescription className={ui.subtitle}>
-              {selectedAsset
-                ? `${selectedAsset.sku} · ${selectedAsset.category} · ${selectedAsset.location}`
-                : "Vue consolidee du cycle de vie du parc IT."}
-            </CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
-        <Input
-          className={`${ui.input} pl-9 text-white`}
-          onChange={(event) => setSearchQuery(event.target.value)}
-          placeholder={`${KYC_UI.TYPE}, ${KYC_UI.DESCRIPTION}, ${KYC_UI.USER}, ${KYC_UI.DETAIL}…`}
-          value={searchQuery}
-        />
-      </div>
-
-      <Card className={`${ui.panel} ${ui.tablePanel}`}>
-        <CardContent className={ui.tablePanelBody}>
-          {isLoading ? (
-            <p className="rounded-md bg-slate-800/50 p-4 text-sm text-slate-400">
-              Chargement de l&apos;historique...
-            </p>
-          ) : filteredEvents.length === 0 ? (
-            <p className="rounded-md bg-slate-800/50 p-4 text-sm text-slate-400">
-              Aucun evenement pour les filtres selectionnes.
-            </p>
-          ) : (
-            <div className={ui.tableWrap}>
-            <Table className="table-fixed">
-              <TableHeader>
-                <TableRow className="border-white/10 hover:bg-transparent">
-                  <TableHead className="w-[14%] text-xs text-slate-500">Date</TableHead>
-                  <TableHead className="w-[14%] text-xs text-slate-500">Type</TableHead>
-                  <TableHead className="w-[22%] text-xs text-slate-500">{KYC_UI.DESCRIPTION}</TableHead>
-                  <TableHead className="w-[22%] text-xs text-slate-500">Titre</TableHead>
-                  <TableHead className="w-[14%] text-xs text-slate-500">Responsable</TableHead>
-                  <TableHead className="w-[14%] text-xs text-slate-500">Detail</TableHead>
+      <Card className={`${ui.panel} flex min-h-[22rem] flex-1 flex-col overflow-hidden py-0 ring-0`}>
+        {isLoading ? (
+          <p className="m-4 rounded-md bg-slate-800/50 p-4 text-sm text-slate-400">Chargement de l&apos;historique...</p>
+        ) : filteredEvents.length === 0 ? (
+          <p className="m-4 rounded-md bg-slate-800/50 p-4 text-sm text-slate-400">Aucun evenement pour les filtres selectionnes.</p>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-auto [scrollbar-gutter:stable]">
+            <Table className="min-w-[60rem] table-fixed">
+              <TableHeader className="sticky top-0 z-10 bg-[#0d1330] shadow-[0_1px_0_rgba(255,255,255,0.08)]">
+                <TableRow className="border-0 hover:bg-transparent">
+                  <TableHead className="w-[9.5rem] text-xs text-slate-500">Date</TableHead>
+                  <TableHead className="w-[8rem] text-xs text-slate-500">Type</TableHead>
+                  <TableHead className="w-[15rem] text-xs text-slate-500">Materiel</TableHead>
+                  <TableHead className="w-[15rem] text-xs text-slate-500">Evenement</TableHead>
+                  <TableHead className="w-[10rem] text-xs text-slate-500">Par</TableHead>
+                  <TableHead className="text-xs text-slate-500">Detail</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {filteredEvents.map((event) => (
                   <TableRow className="border-white/6" key={event.id}>
-                    <TableCell className="whitespace-normal align-top text-xs text-slate-400">
-                      <span className="flex items-start gap-2">
-                        <Clock className="size-4 text-slate-500" />
+                    <TableCell className="align-top text-xs text-slate-400">
+                      <span className="flex items-center gap-1.5 whitespace-nowrap">
+                        <Clock className="size-3.5 shrink-0 text-slate-500" />
                         {event.date}
                       </span>
                     </TableCell>
                     <TableCell className="align-top">
                       <TypeBadge type={event.type} />
                     </TableCell>
-                    <TableCell className="whitespace-normal break-words align-top font-medium">
-                      {event.asset}
+                    <TableCell className="whitespace-normal align-top">
+                      {event.assetCode ? <p className="font-mono text-xs text-slate-400">{event.assetCode}</p> : null}
+                      <p className="break-words font-medium text-white">{event.asset}</p>
                     </TableCell>
-                    <TableCell className="whitespace-normal break-words align-top">
-                      {event.title}
+                    <TableCell className="whitespace-normal align-top">
+                      <p className="break-words text-slate-200">{event.title}</p>
+                      {event.metadata && event.metadata !== "-" ? (
+                        <p className="break-words text-xs text-slate-500">{event.metadata}</p>
+                      ) : null}
                     </TableCell>
-                    <TableCell className="whitespace-normal break-words align-top text-slate-300">
-                      {event.owner}
-                    </TableCell>
+                    <TableCell className="whitespace-normal break-words align-top text-slate-300">{event.owner}</TableCell>
                     <TableCell className="whitespace-normal break-words align-top text-sm leading-6 text-slate-300">
                       {event.detail}
                     </TableCell>
@@ -441,9 +327,8 @@ export function HistoryContent() {
                 ))}
               </TableBody>
             </Table>
-            </div>
-          )}
-        </CardContent>
+          </div>
+        )}
       </Card>
     </section>
   );

@@ -1,5 +1,7 @@
+import { assignmentStatusLabels } from "@/lib/assignment-management";
 import { assignmentKindLabels } from "@/lib/assignments/assignment-service";
 import { prisma } from "@/lib/prisma";
+import { movementTypeLabels } from "@/lib/stock/movement-rules";
 
 export { resolveHistoryPeriod } from "@/lib/period-range";
 
@@ -7,22 +9,19 @@ export const eventLabels = {
   assignment: "Affectation",
   incident: "Panne",
   incidentUpdate: "Suivi panne",
-  movement: "Deplacement",
+  movement: "Mouvement",
 } as const;
 
-const movementTypeLabels: Record<string, string> = {
-  ADJUSTMENT: "Ajustement",
-  IN: "Entree",
-  OUT: "Sortie",
-  RETURN: "Retour",
-  TRANSFER: "Transport / Transfert",
-};
+/** Les notes generees par l'import KYC (« Import KYC — … ») n'apportent rien a l'historique. */
+function meaningfulNote(notes: string | null) {
+  return notes && !notes.startsWith("Import KYC") ? notes : null;
+}
 
-const assignmentStatusLabels: Record<string, string> = {
-  ACTIVE: "Alloue",
-  RETURNED: "Retourne",
-  TRANSFERRED: "Transfere",
-};
+function movementRoute(from?: string | null, to?: string | null, quantity = 1) {
+  const route = from || to ? `${from ?? "-"} -> ${to ?? "-"}` : "";
+  const qty = quantity !== 1 ? `Qte ${quantity}` : "";
+  return [route, qty].filter(Boolean).join(" · ");
+}
 
 const incidentStatusLabels: Record<string, string> = {
   CLOSED: "Cloture",
@@ -127,11 +126,12 @@ export async function buildMaterialHistory(filters: HistoryFilters = {}) {
   const events = [
     ...movements.map((movement) => ({
       asset: movement.asset.name,
+      assetCode: movement.asset.sku,
       assetId: movement.assetId,
       date: formatDate(movement.movedAt),
       detail: movement.reason ?? "Aucun motif renseigne",
       id: `movement-${movement.id}`,
-      metadata: `${movement.fromLocation?.name ?? "-"} -> ${movement.toLocation?.name ?? "-"}`,
+      metadata: movementRoute(movement.fromLocation?.name, movement.toLocation?.name, movement.quantity),
       owner: movement.performedBy?.name ?? "Systeme",
       rawDate: movement.movedAt.toISOString(),
       title: movementTypeLabels[movement.type] ?? movement.type,
@@ -139,21 +139,21 @@ export async function buildMaterialHistory(filters: HistoryFilters = {}) {
     })),
     ...assignments.map((assignment) => ({
       asset: assignment.asset.name,
+      assetCode: assignment.asset.sku,
       assetId: assignment.assetId,
       date: formatDate(assignment.assignedAt),
-      detail: `Detenteur : ${assignment.holder.fullName}${assignment.notes ? ` · ${assignment.notes}` : ""}`,
+      detail: [`Detenteur : ${assignment.holder.fullName}`, meaningfulNote(assignment.notes)].filter(Boolean).join(" · "),
       id: `assignment-${assignment.id}`,
-      metadata: assignment.returnedAt
-        ? `Retour le ${formatDate(assignment.returnedAt)}`
-        : assignmentKindLabels[assignment.kind],
+      metadata: assignment.returnedAt ? `Retour le ${formatDate(assignment.returnedAt)}` : "",
       owner: assignment.issuedBy?.name ?? assignment.issuedBy?.email ?? "Import",
       rawDate: assignment.assignedAt.toISOString(),
-      title: assignmentStatusLabels[assignment.status] ?? assignment.status,
+      title: `${assignmentKindLabels[assignment.kind]} · ${assignmentStatusLabels[assignment.status]}`,
       type: eventLabels.assignment,
     })),
     ...incidents.flatMap((incident) => [
       {
         asset: incident.asset.name,
+        assetCode: incident.asset.sku,
         assetId: incident.assetId,
         date: formatDate(incident.identifiedAt),
         detail: incident.description ?? "Aucune description",
@@ -166,6 +166,7 @@ export async function buildMaterialHistory(filters: HistoryFilters = {}) {
       },
       ...incident.updates.map((update) => ({
         asset: incident.asset.name,
+        assetCode: incident.asset.sku,
         assetId: incident.assetId,
         date: formatDate(update.createdAt),
         detail: update.comment,
